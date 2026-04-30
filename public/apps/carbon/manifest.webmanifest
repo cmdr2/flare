@@ -1,0 +1,18 @@
+{
+    "name": "Flare Carbon",
+    "short_name": "Carbon",
+    "description": "A tabbed text editor with autosave and shared sync support.",
+    "start_url": "/public/apps/carbon/",
+    "scope": "/public/apps/carbon/",
+    "display": "standalone",
+    "background_color": "#1e1f1c",
+    "theme_color": "#23241f",
+    "icons": [
+        {
+            "src": "/public/apps/carbon/icon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        }
+    ]
+}
