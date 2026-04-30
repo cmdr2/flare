@@ -25,10 +25,10 @@ const PRECACHE_URLS = [
     '/public/apps/sync/syncbar.js',
     '/public/libs/flare/fs.js',
     '/public/libs/flare/pwa.js',
-    '/public/vendor/lightning-fs.bundle.mjs',
-    '/public/vendor/buffer.mjs',
-    '/public/vendor/aws-sdk.min.js',
-    '/public/vendor/spark-md5.min.js'
+    '/public/libs/lightning-fs.bundle.mjs',
+    '/public/libs/buffer.mjs',
+    '/public/libs/aws-sdk.min.js',
+    '/public/libs/spark-md5.min.js'
 ];
 
 self.addEventListener('install', (event) => {

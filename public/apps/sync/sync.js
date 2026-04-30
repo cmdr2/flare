@@ -7,8 +7,8 @@ export const REMOTE_INDEX_PATH = '/home/.sync/.remote';
 const MD5_HEX_LENGTH = 32;
 const SYNC_LOG_PREFIX = '[sync]';
 
-const AWS_SDK_URL = '/public/vendor/aws-sdk.min.js';
-const SPARK_MD5_URL = '/public/vendor/spark-md5.min.js';
+const AWS_SDK_URL = '/public/libs/aws-sdk.min.js';
+const SPARK_MD5_URL = '/public/libs/spark-md5.min.js';
 
 let awsSdkPromise = null;
 let sparkMd5Promise = null;
