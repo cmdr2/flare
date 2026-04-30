@@ -35,8 +35,8 @@ function mountSyncBar() {
       z-index: 1000;
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 12px 18px;
+            gap: 10px;
+            padding: 8px 14px;
       background: rgba(22, 24, 29, 0.92);
       color: #f5efe6;
       font: 14px/1.2 Georgia, 'Times New Roman', serif;
@@ -47,7 +47,7 @@ function mountSyncBar() {
     .flare-sync-button {
       border: 0;
       border-radius: 999px;
-      padding: 9px 16px;
+            padding: 6px 12px;
       background: #dcb06a;
       color: #1a1712;
       font: inherit;
@@ -91,8 +91,6 @@ function mountSyncBar() {
 
     bar.append(syncButton, statusNode, setupLink);
     document.body.prepend(bar);
-
-    document.body.style.paddingTop = '64px';
 }
 
 function ensureSyncFrame() {

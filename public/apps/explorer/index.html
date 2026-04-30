@@ -23,7 +23,7 @@
     main {
       max-width: 760px;
       margin: 0 auto;
-      padding: 96px 24px 40px;
+      padding: 76px 24px 40px;
     }
 
     h1 {
@@ -51,14 +51,20 @@
 
     .file-list {
       display: grid;
-      gap: 10px;
+      gap: 4px;
+      max-width: 100%;
+      max-height: min(42vh, 320px);
+      overflow: auto;
+      padding-right: 4px;
     }
 
     .file-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      gap: 8px;
+      min-width: max-content;
+      padding: 2px 0;
     }
 
     .file-open {
@@ -71,10 +77,13 @@
       cursor: pointer;
       text-decoration: underline;
       text-underline-offset: 0.12em;
+      white-space: nowrap;
     }
 
     .file-delete {
       background: #a33a21;
+      padding: 6px 10px;
+      font-size: 0.9rem;
     }
 
     .empty-state {
