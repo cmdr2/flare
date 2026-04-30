@@ -499,7 +499,8 @@ function tabPath(id) {
 }
 
 function tabTitle(content) {
-  const firstLine = content.split(/\r?\n/, 1)[0]?.trim();
+  const safeContent = typeof content === 'string' ? content : '';
+  const firstLine = safeContent.split(/\r?\n/, 1)[0]?.trim();
   return firstLine || EMPTY_TITLE;
 }
 
