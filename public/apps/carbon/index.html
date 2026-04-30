@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#23241f">
+  <link rel="manifest" href="/public/apps/carbon/manifest.webmanifest">
+  <link rel="icon" href="/public/apps/carbon/icon.svg" type="image/svg+xml">
+  <title>Carbon</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #1e1f1c;
+      color: #f8f8f2;
+      --sync-bar-height: 42px;
+      --toolbar-height: 50px;
+      --tab-height: 42px;
+      --border-color: rgba(255, 255, 255, 0.08);
+      --shadow-color: rgba(0, 0, 0, 0.35);
+      --panel: #23241f;
+      --panel-raised: #2b2d27;
+      --panel-hover: #31332d;
+      --panel-active: #1f201c;
+      --text-muted: #9a9b93;
+      --text-strong: #f8f8f2;
+      --accent: #66d9ef;
+      --danger: #f92672;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background: #1e1f1c;
+      overflow: hidden;
+    }
+
+    body {
+      color: var(--text-strong);
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .app-shell {
+      height: calc(100dvh - var(--sync-bar-height));
+      margin-top: var(--sync-bar-height);
+      display: flex;
+      background:
+        radial-gradient(circle at top right, rgba(102, 217, 239, 0.08), transparent 24%),
+        linear-gradient(180deg, #1f201c 0%, #1a1b18 100%);
+    }
+
+    .workspace {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .toolbar {
+      height: var(--toolbar-height);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--border-color);
+      background: linear-gradient(180deg, rgba(48, 50, 43, 0.98) 0%, rgba(35, 36, 31, 0.98) 100%);
+      box-shadow: 0 10px 24px -20px var(--shadow-color);
+      flex-shrink: 0;
+    }
+
+    .toolbar-status {
+      min-width: 0;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .toolbar-spacer {
+      flex: 1;
+    }
+
+    .toolbar-button {
+      height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 0 12px;
+      color: var(--text-strong);
+      background: rgba(255, 255, 255, 0.04);
+      cursor: pointer;
+      transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
+    }
+
+    .toolbar-button:hover,
+    .toolbar-button:focus-visible {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.16);
+      outline: none;
+    }
+
+    .toolbar-button:active {
+      transform: translateY(1px);
+    }
+
+    .menu-button {
+      display: none;
+      width: 36px;
+      padding: 0;
+      font-size: 1rem;
+    }
+
+    .tab-strip {
+      height: var(--tab-height);
+      display: flex;
+      align-items: stretch;
+      gap: 1px;
+      padding: 0 8px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      border-bottom: 1px solid var(--border-color);
+      background: #1f201c;
+      scrollbar-width: none;
+      flex-shrink: 0;
+    }
+
+    .tab-strip::-webkit-scrollbar {
+      display: none;
+    }
+
+    .tab-card {
+      min-width: 0;
+      max-width: min(260px, 42vw);
+      height: calc(var(--tab-height) - 2px);
+      margin-top: 1px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      border: 1px solid transparent;
+      border-radius: 10px 10px 0 0;
+      background: transparent;
+      color: var(--text-muted);
+      position: relative;
+      flex: 0 0 auto;
+      transition: background 140ms ease, color 140ms ease;
+    }
+
+    .tab-card:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: #d7d8d1;
+    }
+
+    .tab-card.active {
+      background: var(--panel);
+      color: var(--text-strong);
+      border-color: var(--border-color);
+      border-bottom-color: var(--panel);
+    }
+
+    .tab-card.dragging {
+      opacity: 0.5;
+    }
+
+    .tab-card.drop-before::before,
+    .tab-card.drop-after::after,
+    .tab-list-item.drop-before::before,
+    .tab-list-item.drop-after::after {
+      content: "";
+      position: absolute;
+      background: var(--accent);
+      border-radius: 999px;
+    }
+
+    .tab-card.drop-before::before {
+      inset: 6px auto 6px -2px;
+      width: 3px;
+    }
+
+    .tab-card.drop-after::after {
+      inset: 6px -2px 6px auto;
+      width: 3px;
+    }
+
+    .tab-main,
+    .tab-close {
+      border: 0;
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+    }
+
+    .tab-main {
+      min-width: 0;
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 10px 0 12px;
+      color: inherit;
+      height: 100%;
+      text-align: left;
+    }
+
+    .tab-title {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 0.9rem;
+    }
+
+    .tab-close {
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      margin-right: 6px;
+      font-size: 0.85rem;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.8;
+    }
+
+    .tab-close:hover,
+    .tab-close:focus-visible {
+      background: rgba(255, 255, 255, 0.1);
+      opacity: 1;
+      outline: none;
+    }
+
+    .editor-shell {
+      flex: 1;
+      min-height: 0;
+      min-width: 0;
+      background: #272822;
+      overflow: hidden;
+    }
+
+    .editor-host {
+      height: 100%;
+    }
+
+    .cm-editor {
+      height: 100%;
+    }
+
+    .cm-scroller {
+      overflow-x: hidden !important;
+      overscroll-behavior: contain;
+    }
+
+    .cm-content {
+      padding-right: 24px;
+    }
+
+    .sidebar-backdrop {
+      display: none;
+      position: fixed;
+      inset: var(--sync-bar-height) 0 0 0;
+      background: rgba(0, 0, 0, 0.42);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 180ms ease;
+      z-index: 1001;
+    }
+
+    .sidebar-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .mobile-sidebar {
+      width: min(84vw, 300px);
+      display: flex;
+      flex-direction: column;
+      background: linear-gradient(180deg, rgba(39, 40, 34, 0.98) 0%, rgba(31, 32, 28, 0.98) 100%);
+      border-right: 1px solid var(--border-color);
+      box-shadow: 18px 0 36px rgba(0, 0, 0, 0.34);
+      transform: translateX(-100%);
+      transition: transform 180ms ease;
+      height: 100%;
+    }
+
+    .mobile-sidebar.open {
+      transform: translateX(0);
+    }
+
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 14px 14px 10px;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .sidebar-close {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      padding: 0;
+    }
+
+    .tab-list {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 10px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .tab-list-item {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      padding: 4px;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.03);
+      position: relative;
+    }
+
+    .tab-list-item.active {
+      background: rgba(102, 217, 239, 0.12);
+      color: var(--text-strong);
+      border-color: rgba(102, 217, 239, 0.2);
+    }
+
+    .tab-list-item.dragging {
+      opacity: 0.55;
+    }
+
+    .tab-list-item .tab-main {
+      padding: 8px 10px;
+      min-height: 38px;
+    }
+
+    .tab-list-item .tab-close {
+      margin-right: 2px;
+    }
+
+    .tab-list-item.drop-before::before {
+      inset: -2px 10px auto 10px;
+      height: 3px;
+    }
+
+    .tab-list-item.drop-after::after {
+      inset: auto 10px -2px 10px;
+      height: 3px;
+    }
+
+    @media (max-width: 720px) {
+      .menu-button {
+        display: inline-flex;
+      }
+
+      .tab-strip {
+        display: none;
+      }
+
+      .sidebar-backdrop {
+        display: block;
+      }
+
+      .toolbar {
+        gap: 8px;
+        padding: 0 10px;
+      }
+
+      .toolbar-status {
+        font-size: 0.78rem;
+      }
+
+      .toolbar-button.new-tab-button {
+        padding: 0 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar-backdrop" id="sidebar-backdrop" aria-hidden="true">
+    <aside class="mobile-sidebar" id="mobile-sidebar" aria-label="Open tabs">
+      <div class="sidebar-header">
+        <span>Tabs</span>
+        <button id="sidebar-close-button" class="toolbar-button sidebar-close" type="button" aria-label="Close tab menu">✕</button>
+      </div>
+      <div class="tab-list" id="mobile-tab-list"></div>
+    </aside>
+  </div>
+
+  <div class="app-shell">
+    <div class="workspace">
+      <header class="toolbar">
+        <button id="menu-button" class="toolbar-button menu-button" type="button" aria-label="Open tab menu">☰</button>
+        <div class="toolbar-status" id="toolbar-status">Loading tabs...</div>
+        <div class="toolbar-spacer"></div>
+        <button id="new-tab-button" class="toolbar-button new-tab-button" type="button">+ New tab</button>
+      </header>
+      <nav class="tab-strip" id="desktop-tab-strip" aria-label="Open tabs"></nav>
+      <main class="editor-shell">
+        <div id="editor-host" class="editor-host"></div>
+      </main>
+    </div>
+  </div>
+
+  <script type="module" src="/public/apps/sync/syncbar.js"></script>
+  <script type="module" src="/public/apps/carbon/carbon.js"></script>
+</body>
+</html>
