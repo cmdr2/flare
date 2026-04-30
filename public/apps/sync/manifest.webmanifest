@@ -1,0 +1,18 @@
+{
+    "name": "Flare Sync Setup",
+    "short_name": "Sync",
+    "description": "Manage sync credentials and status offline.",
+    "start_url": "/public/apps/sync/",
+    "scope": "/public/apps/sync/",
+    "display": "standalone",
+    "background_color": "#f7f1e8",
+    "theme_color": "#221b13",
+    "icons": [
+        {
+            "src": "/public/apps/sync/icon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        }
+    ]
+}

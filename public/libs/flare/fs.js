@@ -1,4 +1,4 @@
-import LightningFS from 'https://esm.sh/@isomorphic-git/lightning-fs@4.6.2?bundle';
+import LightningFS from '/public/vendor/lightning-fs.bundle.mjs';
 
 export const FS_NAME = '/sda1';
 export const fs = new LightningFS(FS_NAME);

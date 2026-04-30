@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#221b13">
+  <link rel="manifest" href="/public/apps/sync/manifest.webmanifest">
+  <link rel="icon" href="/public/apps/sync/icon.svg" type="image/svg+xml">
   <title>Sync Setup</title>
   <style>
     :root {
@@ -109,6 +112,7 @@
   </main>
 
   <script type="module">
+    import { registerPwa } from '/public/libs/flare/pwa.js';
     import {
       CREDENTIALS_PATH,
       SYNC_SOURCE,
@@ -119,6 +123,8 @@
       readSavedCredentials,
       saveCredentials
     } from './sync.js';
+
+    registerPwa('sync');
 
     const embedded = window.parent !== window;
     const viewStatus = document.getElementById('view-status');
