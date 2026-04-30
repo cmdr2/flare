@@ -248,15 +248,27 @@ function patchLightningFs() {
     patchFsInstance(sharedFs);
     wrapMutation(LightningFS.prototype, 'writeFile');
     wrapMutation(LightningFS.prototype, 'unlink');
+    wrapMutation(LightningFS.prototype, 'mkdir');
+    wrapMutation(LightningFS.prototype, 'rmdir');
+    wrapMutation(LightningFS.prototype, 'rename');
     wrapMutation(Object.getPrototypeOf(sharedFs.promises), 'writeFile');
     wrapMutation(Object.getPrototypeOf(sharedFs.promises), 'unlink');
+    wrapMutation(Object.getPrototypeOf(sharedFs.promises), 'mkdir');
+    wrapMutation(Object.getPrototypeOf(sharedFs.promises), 'rmdir');
+    wrapMutation(Object.getPrototypeOf(sharedFs.promises), 'rename');
 }
 
 function patchFsInstance(fs) {
     wrapMutation(fs, 'writeFile');
     wrapMutation(fs, 'unlink');
+    wrapMutation(fs, 'mkdir');
+    wrapMutation(fs, 'rmdir');
+    wrapMutation(fs, 'rename');
     wrapMutation(fs?.promises, 'writeFile');
     wrapMutation(fs?.promises, 'unlink');
+    wrapMutation(fs?.promises, 'mkdir');
+    wrapMutation(fs?.promises, 'rmdir');
+    wrapMutation(fs?.promises, 'rename');
 }
 
 function wrapMutation(target, methodName) {
@@ -269,9 +281,11 @@ function wrapMutation(target, methodName) {
         const path = args[0];
         const lastArg = args[args.length - 1];
 
+        const trackedPaths = getMutationPaths(methodName, args);
+
         if (typeof lastArg === 'function') {
             args[args.length - 1] = function (error, ...callbackArgs) {
-                if (!error && shouldTrackDirtyPath(path)) {
+                if (!error && trackedPaths.some(shouldTrackDirtyPath)) {
                     markDirty();
                 }
                 return lastArg.call(this, error, ...callbackArgs);
@@ -282,14 +296,14 @@ function wrapMutation(target, methodName) {
         const result = original.apply(this, args);
         if (result && typeof result.then === 'function') {
             return result.then((value) => {
-                if (shouldTrackDirtyPath(path)) {
+                if (trackedPaths.some(shouldTrackDirtyPath)) {
                     markDirty();
                 }
                 return value;
             });
         }
 
-        if (shouldTrackDirtyPath(path)) {
+        if (trackedPaths.some(shouldTrackDirtyPath)) {
             markDirty();
         }
 
@@ -302,6 +316,14 @@ function wrapMutation(target, methodName) {
 
 function shouldTrackDirtyPath(path) {
     return !isSyncing && typeof path === 'string' && !DIRTY_EXCLUDED_PATHS.has(path);
+}
+
+function getMutationPaths(methodName, args) {
+    if (methodName === 'rename') {
+        return [args[0], args[1]];
+    }
+
+    return [args[0]];
 }
 
 function handleSyncClick() {

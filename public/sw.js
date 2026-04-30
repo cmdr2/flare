@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v0.1.0';
+const CACHE_VERSION = 'v0.2.0';
 const CACHE_NAME = 'flare-shell-' + CACHE_VERSION;
 const APP_SHELLS = {
     '/public/apps/explorer/': '/public/apps/explorer/index.html',
@@ -13,6 +13,8 @@ const PRECACHE_URLS = [
     '/public/apps/explorer/index.html',
     '/public/apps/explorer/manifest.webmanifest',
     '/public/apps/explorer/icon.svg',
+    '/public/apps/explorer/explorer.css',
+    '/public/apps/explorer/explorer.js',
     '/public/apps/app2/',
     '/public/apps/app2/index.html',
     '/public/apps/app2/manifest.webmanifest',

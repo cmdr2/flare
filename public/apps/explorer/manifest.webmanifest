@@ -1,12 +1,12 @@
 {
     "name": "Flare Explorer",
     "short_name": "Explorer",
-    "description": "Browse and edit the shared Flare filesystem offline.",
+    "description": "Browse the shared Flare filesystem with large icons, lists, and tree views.",
     "start_url": "/public/apps/explorer/",
     "scope": "/public/apps/explorer/",
     "display": "standalone",
-    "background_color": "#f4efe6",
-    "theme_color": "#1f1d1a",
+    "background_color": "#f4f8fc",
+    "theme_color": "#0f6cbd",
     "icons": [
         {
             "src": "/public/apps/explorer/icon.svg",

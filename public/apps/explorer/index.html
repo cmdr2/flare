@@ -3,328 +3,115 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#1f1d1a">
+  <meta name="theme-color" content="#0f6cbd">
   <link rel="manifest" href="/public/apps/explorer/manifest.webmanifest">
   <link rel="icon" href="/public/apps/explorer/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/public/apps/explorer/explorer.css">
   <title>Explorer</title>
-  <style>
-    :root {
-      color-scheme: light;
-      font-family: Georgia, 'Times New Roman', serif;
-      background: #f4efe6;
-      color: #1f1d1a;
-    }
-
-    body {
-      margin: 0;
-      background:
-        radial-gradient(circle at top right, rgba(183, 119, 56, 0.14), transparent 30%),
-        linear-gradient(180deg, #fbf7f0 0%, #efe5d6 100%);
-      min-height: 100vh;
-    }
-
-    main {
-      max-width: 760px;
-      margin: 0 auto;
-      padding: 76px 24px 40px;
-    }
-
-    h1 {
-      margin: 0 0 12px;
-      font-size: 2.8rem;
-    }
-
-    p {
-      line-height: 1.5;
-      max-width: 58ch;
-    }
-
-    .file-browser {
-      margin-top: 28px;
-      padding: 18px;
-      border-radius: 18px;
-      background: rgba(255, 255, 255, 0.68);
-      box-shadow: 0 16px 34px rgba(76, 53, 28, 0.08);
-    }
-
-    .file-browser h2 {
-      margin: 0 0 12px;
-      font-size: 1.25rem;
-    }
-
-    .file-list {
-      display: grid;
-      gap: 4px;
-      max-width: 100%;
-      max-height: min(42vh, 320px);
-      overflow: auto;
-      padding-right: 4px;
-    }
-
-    .file-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      min-width: max-content;
-      padding: 2px 0;
-    }
-
-    .file-open {
-      padding: 0;
-      border: 0;
-      background: transparent;
-      color: #1f1d1a;
-      font: inherit;
-      text-align: left;
-      cursor: pointer;
-      text-decoration: underline;
-      text-underline-offset: 0.12em;
-      white-space: nowrap;
-    }
-
-    .file-delete {
-      background: #a33a21;
-      padding: 6px 10px;
-      font-size: 0.9rem;
-    }
-
-    .empty-state {
-      margin: 0;
-      color: rgba(31, 29, 26, 0.75);
-    }
-
-    .path-field {
-      width: 100%;
-      margin-top: 18px;
-      border: 1px solid rgba(31, 29, 26, 0.2);
-      border-radius: 14px;
-      padding: 12px 14px;
-      font: inherit;
-      background: rgba(255, 255, 255, 0.82);
-      box-sizing: border-box;
-    }
-
-    textarea {
-      width: 100%;
-      min-height: 220px;
-      margin-top: 18px;
-      border: 1px solid rgba(31, 29, 26, 0.2);
-      border-radius: 16px;
-      padding: 16px;
-      font: inherit;
-      background: rgba(255, 255, 255, 0.8);
-      box-sizing: border-box;
-      resize: vertical;
-    }
-
-    .actions {
-      display: flex;
-      gap: 12px;
-      margin-top: 16px;
-    }
-
-    button {
-      border: 0;
-      border-radius: 999px;
-      padding: 12px 18px;
-      background: #1f1d1a;
-      color: #fff8ef;
-      font: inherit;
-      cursor: pointer;
-    }
-
-    pre {
-      margin-top: 18px;
-      padding: 16px;
-      border-radius: 16px;
-      background: rgba(31, 29, 26, 0.9);
-      color: #f9f2e8;
-      white-space: pre-wrap;
-    }
-  </style>
 </head>
 <body>
-  <main>
-    <h1>Explorer</h1>
-    <p>Browse, edit, create, and delete files in the shared LightningFS filesystem. The shared sync bar is injected automatically.</p>
-    <section class="file-browser" aria-labelledby="file-browser-title">
-      <h2 id="file-browser-title">Files</h2>
-      <div class="file-list" id="file-list"></div>
-    </section>
-    <input id="file-path" class="path-field" type="text" placeholder="/path/to/file.txt" spellcheck="false">
-    <textarea id="editor" placeholder="Write something to save into the selected file"></textarea>
-    <div class="actions">
-      <button id="save-button" type="button">Save</button>
-      <button id="new-file-button" type="button">New file</button>
-    </div>
-    <pre id="status">Initializing...</pre>
-  </main>
-
   <script type="module" src="/public/apps/sync/syncbar.js"></script>
-  <script type="module">
-    import { registerPwa } from '/public/libs/flare/pwa.js';
-    import { fs } from '/public/libs/flare/fs.js';
 
-    registerPwa('explorer');
+  <div class="explorer-app">
+    <header class="app-toolbar" aria-label="Explorer toolbar">
+      <div class="toolbar-group toolbar-group--leading">
+        <button id="sidebar-toggle" class="toolbar-button toolbar-button--ghost" type="button" aria-expanded="false" aria-controls="sidebar">Folders</button>
+        <button id="up-button" class="toolbar-button toolbar-button--ghost" type="button">Up</button>
+      </div>
 
-    const fileList = document.getElementById('file-list');
-    const filePathInput = document.getElementById('file-path');
-    const editor = document.getElementById('editor');
-    const status = document.getElementById('status');
-    const saveButton = document.getElementById('save-button');
-    const newFileButton = document.getElementById('new-file-button');
+      <form id="address-form" class="address-form" autocomplete="off">
+        <label class="sr-only" for="address-input">Folder path</label>
+        <div class="address-shell">
+          <span class="address-prefix" aria-hidden="true"></span>
+          <input id="address-input" class="address-input" type="text" spellcheck="false" placeholder="/">
+        </div>
+      </form>
 
-    async function refreshFileList() {
-      const files = (await listAll('/')).sort((left, right) => left.localeCompare(right));
+      <div class="toolbar-group toolbar-group--actions">
+        <button id="new-file-button" class="toolbar-button" type="button">New file</button>
+        <button id="new-folder-button" class="toolbar-button toolbar-button--ghost" type="button">New folder</button>
+      </div>
+    </header>
 
-      if (files.length === 0) {
-        fileList.innerHTML = '<p class="empty-state">No files in the filesystem yet.</p>';
-        return;
-      }
+    <div class="explorer-shell">
+      <aside id="sidebar" class="sidebar" aria-label="Folder tree">
+        <div class="sidebar-header">
+          <span>Folders</span>
+          <button id="collapse-sidebar-button" class="toolbar-button toolbar-button--ghost sidebar-close" type="button">Close</button>
+        </div>
+        <div id="sidebar-tree" class="tree-panel"></div>
+      </aside>
 
-      fileList.replaceChildren(...files.map((path) => {
-        const row = document.createElement('div');
-        row.className = 'file-row';
+      <div id="sidebar-backdrop" class="sidebar-backdrop" hidden></div>
 
-        const openButton = document.createElement('button');
-        openButton.type = 'button';
-        openButton.className = 'file-open';
-        openButton.textContent = path;
-        openButton.addEventListener('click', () => loadFile(path));
+      <section class="content-shell" aria-label="File browser">
+        <div class="content-header">
+          <div>
+            <p class="content-label">Current folder</p>
+            <h1 id="folder-title">/</h1>
+          </div>
 
-        const deleteButton = document.createElement('button');
-        deleteButton.type = 'button';
-        deleteButton.className = 'file-delete';
-        deleteButton.textContent = 'Delete';
-        deleteButton.addEventListener('click', () => deleteFile(path));
+          <div class="view-switcher" role="tablist" aria-label="View mode">
+            <button class="view-button" type="button" data-view="grid" role="tab" aria-selected="true">Large icons</button>
+            <button class="view-button" type="button" data-view="list" role="tab" aria-selected="false">List</button>
+            <button class="view-button" type="button" data-view="tree" role="tab" aria-selected="false">Tree</button>
+          </div>
+        </div>
 
-        row.append(openButton, deleteButton);
-        return row;
-      }));
-    }
+        <div id="content-view" class="content-view" aria-live="polite"></div>
+      </section>
+    </div>
 
-    async function loadFile(path = filePathInput.value.trim()) {
-      if (!isValidPath(path)) {
-        status.textContent = 'Load failed: filepath must start with /';
-        return;
-      }
+    <footer class="status-bar">
+      <span id="selection-summary">No selection</span>
+      <span id="status-message">Loading…</span>
+    </footer>
+  </div>
 
-      try {
-        const contents = await fs.promises.readFile(path, { encoding: 'utf8' });
-        filePathInput.value = path;
-        editor.value = contents;
-        status.textContent = 'Loaded ' + path;
-      } catch (error) {
-        status.textContent = 'Load failed: ' + error.message;
-      }
-    }
+  <dialog id="editor-dialog" class="modal">
+    <form method="dialog" class="modal-card modal-card--editor">
+      <header class="modal-header">
+        <div>
+          <p class="modal-label">Text editor</p>
+          <h2 id="editor-title">Open file</h2>
+        </div>
+        <button id="editor-close-button" class="toolbar-button toolbar-button--ghost" type="button">Close</button>
+      </header>
 
-    async function saveFile() {
-      const path = filePathInput.value.trim();
-      if (!isValidPath(path)) {
-        status.textContent = 'Save failed: filepath must start with /';
-        return;
-      }
+      <textarea id="editor-textarea" class="editor-textarea" spellcheck="false" placeholder="File contents"></textarea>
 
-      try {
-        await ensureDir(parentDir(path));
-        await fs.promises.writeFile(path, editor.value);
-        await refreshFileList();
-        status.textContent = 'Saved ' + path;
-      } catch (error) {
-        status.textContent = 'Save failed: ' + error.message;
-      }
-    }
+      <footer class="modal-actions">
+        <span id="editor-status" class="modal-status"></span>
+        <button id="editor-save-button" class="toolbar-button" type="button">Save</button>
+      </footer>
+    </form>
+  </dialog>
 
-    async function deleteFile(path) {
-      if (!window.confirm('Delete ' + path + '?')) {
-        return;
-      }
+  <dialog id="create-dialog" class="modal">
+    <form id="create-form" class="modal-card modal-card--compact" method="dialog">
+      <header class="modal-header">
+        <div>
+          <p id="create-label" class="modal-label">Create item</p>
+          <h2 id="create-title">New item</h2>
+        </div>
+        <button id="create-cancel-button" class="toolbar-button toolbar-button--ghost" type="button">Cancel</button>
+      </header>
 
-      try {
-        await fs.promises.unlink(path);
-        if (filePathInput.value.trim() === path) {
-          filePathInput.value = '/';
-          editor.value = '';
-        }
-        await refreshFileList();
-        status.textContent = 'Deleted ' + path;
-      } catch (error) {
-        status.textContent = 'Delete failed: ' + error.message;
-      }
-    }
+      <label class="field-group" for="create-name-input">
+        Name
+        <input id="create-name-input" class="field-input" type="text" autocomplete="off" spellcheck="false" placeholder="name.txt">
+      </label>
 
-    function startNewFile() {
-      filePathInput.value = '/';
-      editor.value = '';
-      filePathInput.focus();
-      filePathInput.setSelectionRange(1, 1);
-      status.textContent = 'Enter a new filepath starting with /';
-    }
+      <p id="create-target" class="helper-text"></p>
+      <p id="create-error" class="error-text" role="alert"></p>
 
-    function isValidPath(path) {
-      return path.startsWith('/') && path.length > 1;
-    }
+      <footer class="modal-actions">
+        <span></span>
+        <button id="create-submit-button" class="toolbar-button" type="submit">Create</button>
+      </footer>
+    </form>
+  </dialog>
 
-    async function listAll(root) {
-      const paths = [];
-      let entries;
-
-      try {
-        entries = await fs.promises.readdir(root);
-      } catch {
-        return paths;
-      }
-
-      for (const name of entries) {
-        const childPath = joinPath(root, name);
-
-        try {
-          const nested = await fs.promises.readdir(childPath);
-          if (Array.isArray(nested)) {
-            paths.push(...await listAll(childPath));
-            continue;
-          }
-        } catch {
-          paths.push(childPath);
-        }
-      }
-
-      return paths;
-    }
-
-    async function ensureDir(path) {
-      if (!path || path === '/') {
-        return;
-      }
-
-      const parts = path.split('/').filter(Boolean);
-      let current = '';
-
-      for (const part of parts) {
-        current += '/' + part;
-        try {
-          await fs.promises.mkdir(current);
-        } catch {
-        }
-      }
-    }
-
-    function joinPath(base, name) {
-      return (base === '/' ? '' : base) + '/' + name;
-    }
-
-    function parentDir(path) {
-      const lastSlash = path.lastIndexOf('/');
-      return lastSlash <= 0 ? '/' : path.slice(0, lastSlash);
-    }
-
-    saveButton.addEventListener('click', saveFile);
-    newFileButton.addEventListener('click', startNewFile);
-
-    startNewFile();
-    await refreshFileList();
-  </script>
+  <script type="module" src="/public/apps/explorer/explorer.js"></script>
 </body>
 </html>
