@@ -5,6 +5,8 @@ const APP_SHELLS = {
     '/public/apps/explorer/index.html': '/public/apps/explorer/index.html',
     '/public/apps/app2/': '/public/apps/app2/index.html',
     '/public/apps/app2/index.html': '/public/apps/app2/index.html',
+    '/public/apps/carbon/': '/public/apps/carbon/index.html',
+    '/public/apps/carbon/index.html': '/public/apps/carbon/index.html',
     '/public/apps/sync/': '/public/apps/sync/index.html',
     '/public/apps/sync/index.html': '/public/apps/sync/index.html'
 };
@@ -19,6 +21,12 @@ const PRECACHE_URLS = [
     '/public/apps/app2/index.html',
     '/public/apps/app2/manifest.webmanifest',
     '/public/apps/app2/icon.svg',
+    '/public/apps/carbon/',
+    '/public/apps/carbon/index.html',
+    '/public/apps/carbon/manifest.webmanifest',
+    '/public/apps/carbon/icon.svg',
+    '/public/apps/carbon/carbon.js',
+    '/public/apps/carbon/codemirror-carbon.js',
     '/public/apps/sync/',
     '/public/apps/sync/index.html',
     '/public/apps/sync/manifest.webmanifest',
