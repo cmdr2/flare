@@ -128,6 +128,12 @@ function handleMessage(event) {
         return;
     }
 
+    console.log('[syncbar]', 'message', {
+        type: event.data.type,
+        requestId: event.data.requestId,
+        payload: event.data.payload
+    });
+
     if (event.data.type === 'sync-ready') {
         syncReady = true;
         clearTimeout(iframeTimeout);
@@ -150,6 +156,10 @@ function handleMessage(event) {
         isSyncing = false;
         localDirty = false;
         reloadAfterCheck = true;
+        console.log('[syncbar]', 'sync-complete; requesting post-sync check', {
+            requestId: event.data.requestId,
+            payload: event.data.payload
+        });
         setStatus('Checking..');
         sendSyncMessage('check');
         return;
@@ -158,6 +168,10 @@ function handleMessage(event) {
     if (event.data.type === 'sync-error') {
         isSyncing = false;
         reloadAfterCheck = false;
+        console.error('[syncbar]', 'sync-error', {
+            requestId: event.data.requestId,
+            payload: event.data.payload
+        });
         setStatus('Failed to sync');
         showSetupLink(event.data.payload?.code === 'setup-needed');
         setSyncEnabled(true);
@@ -170,12 +184,16 @@ function handleSyncStatus(status) {
     if (reloadAfterCheck) {
         reloadAfterCheck = false;
         if (status === 'up-to-date') {
+            console.log('[syncbar]', 'post-sync check is up-to-date; reloading page');
             window.location.reload();
             return;
         }
+
+        console.warn('[syncbar]', 'post-sync check did not resolve to up-to-date', { status });
     }
 
     if (localDirty) {
+        console.log('[syncbar]', 'status resolved to local dirty override', { status });
         setStatus('Needs sync');
         setSyncEnabled(syncReady && !isSyncing);
         showSetupLink(status === 'setup-needed' || status === 'error');
@@ -183,6 +201,7 @@ function handleSyncStatus(status) {
     }
 
     if (status === 'needs-sync') {
+        console.log('[syncbar]', 'status branch', { status });
         setStatus('Needs sync');
         setSyncEnabled(true);
         showSetupLink(false);
@@ -190,6 +209,7 @@ function handleSyncStatus(status) {
     }
 
     if (status === 'up-to-date') {
+        console.log('[syncbar]', 'status branch', { status });
         setStatus('Up-to-date');
         setSyncEnabled(false);
         showSetupLink(false);
@@ -197,6 +217,7 @@ function handleSyncStatus(status) {
     }
 
     if (status === 'setup-needed') {
+        console.log('[syncbar]', 'status branch', { status });
         setStatus('Setup needed');
         setSyncEnabled(false);
         showSetupLink(true);
@@ -204,12 +225,14 @@ function handleSyncStatus(status) {
     }
 
     if (status === 'error') {
+        console.warn('[syncbar]', 'status branch', { status });
         setStatus('Error');
         setSyncEnabled(false);
         showSetupLink(true);
         return;
     }
 
+    console.warn('[syncbar]', 'status fell through to offline', { status });
     setStatus('Offline');
     setSyncEnabled(false);
     showSetupLink(false);
@@ -285,10 +308,12 @@ function shouldTrackDirtyPath(path) {
 
 function handleSyncClick() {
     if (!syncReady || isSyncing) {
+        console.warn('[syncbar]', 'sync click ignored', { syncReady, isSyncing });
         return;
     }
 
     isSyncing = true;
+    console.log('[syncbar]', 'sync click accepted');
     setStatus('Syncing..');
     setSyncEnabled(false);
     showSetupLink(false);
@@ -297,13 +322,17 @@ function handleSyncClick() {
 
 function sendSyncMessage(type, payload = {}) {
     if (!syncFrame?.contentWindow) {
+        console.warn('[syncbar]', 'cannot send message; iframe missing', { type, payload });
         return;
     }
+
+    const requestId = String(++syncRequestCounter);
+    console.log('[syncbar]', 'send', { type, requestId, payload });
 
     syncFrame.contentWindow.postMessage({
         source: SYNC_SOURCE,
         type,
-        requestId: String(++syncRequestCounter),
+        requestId,
         payload
     }, SYNC_ORIGIN);
 }

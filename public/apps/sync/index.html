@@ -158,6 +158,7 @@
     });
 
     if (embedded) {
+      console.log('[sync-frame]', 'ready');
       parent.postMessage({
         source: SYNC_SOURCE,
         type: 'sync-ready',
@@ -168,13 +169,16 @@
 
     async function handleCheck(requestId) {
       try {
+        console.log('[sync-frame]', 'check:start', { requestId });
         const credentials = await readSavedCredentials();
         if (!hasValidCredentials(credentials)) {
+          console.warn('[sync-frame]', 'check:setup-needed', { requestId });
           postToParent('sync-status', requestId, { status: 'setup-needed' });
           return;
         }
 
         if (!navigator.onLine) {
+          console.warn('[sync-frame]', 'check:offline', { requestId });
           postToParent('sync-status', requestId, { status: 'offline' });
           return;
         }
@@ -186,9 +190,11 @@
             setViewStatus(payload.message, payload.append);
           }
         });
+        console.log('[sync-frame]', 'check:complete', { requestId, inspection });
         postToParent('sync-status', requestId, inspection);
         setViewStatus('Check complete: ' + inspection.status);
       } catch (error) {
+        console.error('[sync-frame]', 'check:failed', { requestId, code: error.code || 'check-failed' }, error);
         postToParent('sync-status', requestId, {
           status: 'error',
           code: error.code || 'check-failed',
@@ -200,6 +206,7 @@
 
     async function handleSync(requestId) {
       try {
+        console.log('[sync-frame]', 'sync:start', { requestId });
         setViewStatus('Starting sync...');
         const result = await performSync({
           requestId,
@@ -209,9 +216,11 @@
           }
         });
 
+        console.log('[sync-frame]', 'sync:complete', { requestId, result });
         postToParent('sync-complete', requestId, result);
         setViewStatus('Sync complete.');
       } catch (error) {
+        console.error('[sync-frame]', 'sync:failed', { requestId, code: error.code || 'sync-failed' }, error);
         postToParent('sync-error', requestId, {
           code: error.code || 'sync-failed',
           message: error.message
@@ -247,6 +256,8 @@
       if (!embedded) {
         return;
       }
+
+      console.log('[sync-frame]', 'post', { type, requestId, payload });
 
       parent.postMessage({
         source: SYNC_SOURCE,

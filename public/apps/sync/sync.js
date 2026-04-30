@@ -5,6 +5,7 @@ export const CREDENTIALS_PATH = '/home/.aws/credentials';
 export const LOCAL_INDEX_PATH = '/home/.sync/.local';
 export const REMOTE_INDEX_PATH = '/home/.sync/.remote';
 const MD5_HEX_LENGTH = 32;
+const SYNC_LOG_PREFIX = '[sync]';
 
 const AWS_SDK_URL = 'https://cdn.jsdelivr.net/npm/aws-sdk@2.1693.0/dist/aws-sdk.min.js';
 const SPARK_MD5_URL = 'https://cdn.jsdelivr.net/npm/spark-md5@3.0.2/spark-md5.min.js';
@@ -84,6 +85,12 @@ export function hasValidCredentials(credentials) {
 }
 
 export async function inspectSyncState(credentials, { requestId, onProgress } = {}) {
+    logSyncDebug('inspect:start', {
+        requestId,
+        bucket: credentials?.bucket || '(missing)',
+        prefix: normalizePrefix(credentials?.prefix)
+    });
+
     const remoteStorage = await createRemoteStorage(credentials);
     const local = await getLocalFiles();
     const remote = await getRemoteFiles(remoteStorage);
@@ -93,6 +100,7 @@ export async function inspectSyncState(credentials, { requestId, onProgress } = 
     logSyncEntries('check', getTrackedPaths(local, remote), local, remote, requestId, onProgress);
 
     if (Object.keys(remote).length === 0) {
+        logSyncDebug('inspect:remote-empty', { requestId });
         return {
             status: 'needs-sync',
             summary: 'Remote store is empty.'
@@ -100,6 +108,7 @@ export async function inspectSyncState(credentials, { requestId, onProgress } = 
     }
 
     const tasks = getSyncTasks(local, remote, localOld, remoteOld);
+    logSyncDebug('inspect:summary', { requestId, summary: summarizeTasks(tasks) });
     return {
         status: hasPendingTasks(tasks) ? 'needs-sync' : 'up-to-date',
         summary: summarizeTasks(tasks)
@@ -129,6 +138,11 @@ export async function performSync({ requestId, onProgress }) {
         }
 
         onProgress?.({ phase: 'start', message: 'Syncing..', requestId });
+        logSyncDebug('perform:start', {
+            requestId,
+            bucket: credentials.bucket,
+            prefix: normalizePrefix(credentials.prefix)
+        });
 
         const remoteStorage = await createRemoteStorage(credentials);
         let local = await getLocalFiles();
@@ -136,6 +150,7 @@ export async function performSync({ requestId, onProgress }) {
         const localOld = await getOldIndex(LOCAL_INDEX_PATH);
         const remoteOld = await getOldIndex(REMOTE_INDEX_PATH);
         const tasks = getSyncTasks(local, remote, localOld, remoteOld);
+        logSyncDebug('perform:summary', { requestId, summary: summarizeTasks(tasks) });
 
         await runSyncTasks(tasks, remoteStorage, local, remote, requestId, onProgress);
 
@@ -143,6 +158,12 @@ export async function performSync({ requestId, onProgress }) {
         await setOldIndex(LOCAL_INDEX_PATH, local);
         await setOldIndex(REMOTE_INDEX_PATH, local);
         await flushFs();
+
+        logSyncDebug('perform:complete', {
+            requestId,
+            summary: summarizeTasks(tasks),
+            trackedFiles: Object.keys(local).length
+        });
 
         return {
             summary: summarizeTasks(tasks)
@@ -192,44 +213,71 @@ function getSyncTasks(localNew, remoteNew, localOld, remoteOld) {
     const tasks = { upload: {}, download: {}, localDelete: {}, remoteDelete: {}, error: false };
 
     if (!localNew || !remoteNew || !localOld || !remoteOld) {
+        logSyncWarn('tasks:missing-input', {
+            localNew: Boolean(localNew),
+            remoteNew: Boolean(remoteNew),
+            localOld: Boolean(localOld),
+            remoteOld: Boolean(remoteOld)
+        });
         return tasks;
     }
 
     for (const filePath in localNew) {
         if (localNew[filePath] !== localOld[filePath] && remoteNew[filePath] === undefined && remoteOld[filePath] === undefined) {
             tasks.upload[filePath] = 1;
-        }
-
-        if (remoteNew[filePath] === undefined && remoteOld[filePath] === undefined) {
+            logTaskDecision('upload', filePath, 'selected', 'local changed and remote is missing', localNew, remoteNew, localOld, remoteOld);
+        } else if (remoteNew[filePath] === undefined && remoteOld[filePath] === undefined) {
             tasks.upload[filePath] = 1;
+            logTaskDecision('upload', filePath, 'selected', 'remote missing in current and previous index', localNew, remoteNew, localOld, remoteOld);
         } else if (localNew[filePath] !== remoteNew[filePath] && remoteNew[filePath] === remoteOld[filePath] && remoteNew[filePath] !== undefined) {
             tasks.upload[filePath] = 1;
+            logTaskDecision('upload', filePath, 'selected', 'local differs while remote stayed unchanged', localNew, remoteNew, localOld, remoteOld);
+        } else {
+            logTaskDecision('upload', filePath, 'skipped', 'upload conditions did not match', localNew, remoteNew, localOld, remoteOld);
         }
     }
 
     for (const filePath in localOld) {
         if (localNew[filePath] === undefined && remoteNew[filePath] === remoteOld[filePath] && remoteNew[filePath] !== undefined) {
             tasks.remoteDelete[filePath] = 1;
+            logTaskDecision('remote-delete', filePath, 'selected', 'local file deleted since last sync', localNew, remoteNew, localOld, remoteOld);
+        } else {
+            logTaskDecision('remote-delete', filePath, 'skipped', 'remote delete conditions did not match', localNew, remoteNew, localOld, remoteOld);
         }
     }
 
     for (const filePath in remoteOld) {
         if (remoteNew[filePath] === undefined) {
             tasks.localDelete[filePath] = 1;
+            logTaskDecision('local-delete', filePath, 'selected', 'remote file deleted since last sync', localNew, remoteNew, localOld, remoteOld);
+        } else {
+            logTaskDecision('local-delete', filePath, 'skipped', 'local delete conditions did not match', localNew, remoteNew, localOld, remoteOld);
         }
     }
 
     for (const filePath in remoteNew) {
         if (localNew[filePath] === undefined && localOld[filePath] === undefined) {
             tasks.download[filePath] = 1;
+            logTaskDecision('download', filePath, 'selected', 'local file is missing and never synced before', localNew, remoteNew, localOld, remoteOld);
         } else if (remoteOld[filePath] !== remoteNew[filePath] && localNew[filePath] !== remoteNew[filePath]) {
             tasks.download[filePath] = 1;
+            logTaskDecision('download', filePath, 'selected', 'remote changed and local differs', localNew, remoteNew, localOld, remoteOld);
+        } else {
+            logTaskDecision('download', filePath, 'skipped', 'download conditions did not match', localNew, remoteNew, localOld, remoteOld);
         }
     }
 
     for (const filePath in tasks.upload) {
         if (tasks.download[filePath] !== undefined) {
             tasks.error = true;
+            logSyncWarn('task-conflict', {
+                path: filePath,
+                reason: 'download dropped because upload also matched',
+                local: formatHash(localNew[filePath]),
+                remote: formatHash(remoteNew[filePath]),
+                localOld: formatHash(localOld[filePath]),
+                remoteOld: formatHash(remoteOld[filePath])
+            });
             delete tasks.download[filePath];
         }
     }
@@ -243,28 +291,51 @@ async function runSyncTasks(tasks, remoteStorage, local, remote, requestId, onPr
     const localDeleteFiles = Object.keys(tasks.localDelete);
     const remoteDeleteFiles = Object.keys(tasks.remoteDelete);
 
+    if (tasks.error) {
+        logSyncWarn('run:conflict', {
+            requestId,
+            summary: summarizeTasks(tasks)
+        });
+    }
+
+    if (!hasPendingTasks(tasks)) {
+        logSyncWarn('run:no-op', {
+            requestId,
+            summary: summarizeTasks(tasks)
+        });
+        onProgress?.({ phase: 'noop', message: 'No sync tasks to run.', requestId, append: true });
+    }
+
     if (uploadFiles.length > 0) {
         onProgress?.({ phase: 'upload', message: 'Uploading ' + uploadFiles.length + ' file(s)..', requestId });
         logSyncEntries('upload', uploadFiles, local, remote, requestId, onProgress);
         await remoteStorage.upload(uploadFiles);
+    } else {
+        logSyncDebug('run:skip-upload', { requestId, count: 0 });
     }
 
     if (downloadFiles.length > 0) {
         onProgress?.({ phase: 'download', message: 'Downloading ' + downloadFiles.length + ' file(s)..', requestId });
         logSyncEntries('download', downloadFiles, local, remote, requestId, onProgress);
         await remoteStorage.download(downloadFiles);
+    } else {
+        logSyncDebug('run:skip-download', { requestId, count: 0 });
     }
 
     if (localDeleteFiles.length > 0) {
         onProgress?.({ phase: 'local-delete', message: 'Removing ' + localDeleteFiles.length + ' local file(s)..', requestId });
         logSyncEntries('local-delete', localDeleteFiles, local, remote, requestId, onProgress);
         await removeMany(localDeleteFiles);
+    } else {
+        logSyncDebug('run:skip-local-delete', { requestId, count: 0 });
     }
 
     if (remoteDeleteFiles.length > 0) {
         onProgress?.({ phase: 'remote-delete', message: 'Removing ' + remoteDeleteFiles.length + ' remote file(s)..', requestId });
         logSyncEntries('remote-delete', remoteDeleteFiles, local, remote, requestId, onProgress);
         await remoteStorage.moveToTrash(remoteDeleteFiles);
+    } else {
+        logSyncDebug('run:skip-remote-delete', { requestId, count: 0 });
     }
 }
 
@@ -281,6 +352,22 @@ function logSyncEntries(phase, paths, local, remote, requestId, onProgress) {
         console.log('[sync]', message);
         onProgress?.({ phase, message, requestId, append: true, path, localHash, remoteHash });
     }
+}
+
+function formatHash(hash) {
+    return hash || '(missing)';
+}
+
+function logTaskDecision(taskType, path, status, reason, localNew, remoteNew, localOld, remoteOld) {
+    const logger = status === 'selected' ? logSyncDebug : logSyncWarn;
+    logger('task:' + taskType + ':' + status, {
+        path,
+        reason,
+        local: formatHash(localNew[path]),
+        remote: formatHash(remoteNew[path]),
+        localOld: formatHash(localOld[path]),
+        remoteOld: formatHash(remoteOld[path])
+    });
 }
 
 function getTrackedPaths(local, remote) {
@@ -338,6 +425,11 @@ async function createRemoteStorage(credentials) {
             const entries = {};
             let continuationToken = undefined;
 
+            logSyncDebug('remote:list:start', {
+                bucket: credentials.bucket,
+                prefix: filesPrefix || '(root)'
+            });
+
             do {
                 const response = await runS3Request(() => client.listObjectsV2({
                     Bucket: credentials.bucket,
@@ -347,49 +439,99 @@ async function createRemoteStorage(credentials) {
 
                 for (const item of response.Contents || []) {
                     if (!item.Key || item.Key.endsWith('/')) {
+                        logSyncDebug('remote:list:skip', {
+                            key: item.Key || '(missing)',
+                            reason: 'directory-or-empty-key'
+                        });
                         continue;
                     }
 
                     const path = '/' + item.Key.slice(filesPrefix.length);
                     entries[path] = normalizeStoredHash(item.ETag);
+                    logSyncDebug('remote:list:item', {
+                        path,
+                        key: item.Key,
+                        etag: item.ETag || '(missing)',
+                        normalizedHash: formatHash(entries[path])
+                    });
                 }
 
                 continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
             } while (continuationToken);
+
+            logSyncDebug('remote:list:complete', {
+                count: Object.keys(entries).length,
+                bucket: credentials.bucket,
+                prefix: filesPrefix || '(root)'
+            });
 
             return entries;
         },
 
         async upload(paths) {
             for (const path of paths) {
-                const body = await readBytes(path);
-                const hash = await getHash(path);
-                await runS3Request(() => client.putObject({
-                    Bucket: credentials.bucket,
-                    Key: toRemoteKey(filesPrefix, path),
-                    Body: body,
-                    Metadata: { syncchecksum: hash }
-                }).promise());
+                const key = toRemoteKey(filesPrefix, path);
+                try {
+                    logSyncDebug('remote:upload:start', { path, key, bucket: credentials.bucket });
+                    const body = await readBytes(path);
+                    const hash = await getHash(path);
+                    await runS3Request(() => client.putObject({
+                        Bucket: credentials.bucket,
+                        Key: key,
+                        Body: body,
+                        Metadata: { syncchecksum: hash }
+                    }).promise());
+                    logSyncDebug('remote:upload:complete', {
+                        path,
+                        key,
+                        bytes: body.byteLength,
+                        hash
+                    });
+                } catch (error) {
+                    logSyncError('remote:upload:failed', error, { path, key, bucket: credentials.bucket });
+                    throw error;
+                }
             }
         },
 
         async download(paths) {
             for (const path of paths) {
-                const response = await runS3Request(() => client.getObject({
-                    Bucket: credentials.bucket,
-                    Key: toRemoteKey(filesPrefix, path)
-                }).promise());
-                const body = await readResponseBody(response.Body);
-                await writeBytes(path, body);
+                const key = toRemoteKey(filesPrefix, path);
+                try {
+                    logSyncDebug('remote:download:start', { path, key, bucket: credentials.bucket });
+                    const response = await runS3Request(() => client.getObject({
+                        Bucket: credentials.bucket,
+                        Key: key
+                    }).promise());
+                    const body = await readResponseBody(response.Body);
+                    await writeBytes(path, body);
+                    logSyncDebug('remote:download:complete', {
+                        path,
+                        key,
+                        bytes: body.byteLength,
+                        metadataHash: response.Metadata?.syncchecksum || '(missing)'
+                    });
+                } catch (error) {
+                    logSyncError('remote:download:failed', error, { path, key, bucket: credentials.bucket });
+                    throw error;
+                }
             }
         },
 
         async moveToTrash(paths) {
             for (const path of paths) {
-                await runS3Request(() => client.deleteObject({
-                    Bucket: credentials.bucket,
-                    Key: toRemoteKey(filesPrefix, path)
-                }).promise());
+                const key = toRemoteKey(filesPrefix, path);
+                try {
+                    logSyncDebug('remote:delete:start', { path, key, bucket: credentials.bucket });
+                    await runS3Request(() => client.deleteObject({
+                        Bucket: credentials.bucket,
+                        Key: key
+                    }).promise());
+                    logSyncDebug('remote:delete:complete', { path, key });
+                } catch (error) {
+                    logSyncError('remote:delete:failed', error, { path, key, bucket: credentials.bucket });
+                    throw error;
+                }
             }
         }
     };
@@ -426,6 +568,7 @@ async function runS3Request(makeRequest) {
     try {
         return await makeRequest();
     } catch (error) {
+        logSyncError('s3:request-failed', error);
         throw normalizeS3Error(error);
     }
 }
@@ -507,7 +650,9 @@ async function removeMany(paths) {
     for (const path of paths) {
         try {
             await fs.promises.unlink(path);
-        } catch {
+            logSyncDebug('local:delete:complete', { path });
+        } catch (error) {
+            logSyncError('local:delete:failed', error, { path });
         }
     }
 }
@@ -624,8 +769,36 @@ function summarizeTasks(tasks) {
         'upload=' + Object.keys(tasks.upload).length,
         'download=' + Object.keys(tasks.download).length,
         'localDelete=' + Object.keys(tasks.localDelete).length,
-        'remoteDelete=' + Object.keys(tasks.remoteDelete).length
+        'remoteDelete=' + Object.keys(tasks.remoteDelete).length,
+        'error=' + String(Boolean(tasks.error))
     ].join(', ');
+}
+
+function logSyncDebug(message, details) {
+    if (details === undefined) {
+        console.log(SYNC_LOG_PREFIX, message);
+        return;
+    }
+
+    console.log(SYNC_LOG_PREFIX, message, details);
+}
+
+function logSyncWarn(message, details) {
+    if (details === undefined) {
+        console.warn(SYNC_LOG_PREFIX, message);
+        return;
+    }
+
+    console.warn(SYNC_LOG_PREFIX, message, details);
+}
+
+function logSyncError(message, error, details) {
+    if (details === undefined) {
+        console.error(SYNC_LOG_PREFIX, message, error);
+        return;
+    }
+
+    console.error(SYNC_LOG_PREFIX, message, details, error);
 }
 
 function normalizePrefix(prefix) {
