@@ -1,8 +1,8 @@
-import { fs as sharedFs, LightningFS } from '/libs/flare/fs.js';
+import { fs as sharedFs, LightningFS } from '/public/libs/flare/fs.js';
 
 const SYNC_ORIGIN = window.location.origin;
 const SYNC_SOURCE = 'flare-sync';
-const SYNC_URL = '/apps/sync/index.html';
+const SYNC_URL = '/public/apps/sync/index.html';
 const IFRAME_TIMEOUT_MS = 5000;
 const DIRTY_EXCLUDED_PATHS = new Set([
     '/home/.aws/credentials',
@@ -85,7 +85,7 @@ function mountSyncBar() {
 
     setupLink = document.createElement('a');
     setupLink.className = 'flare-sync-link';
-    setupLink.href = '/apps/sync/';
+    setupLink.href = '/public/apps/sync/';
     setupLink.textContent = 'Open setup';
     setupLink.hidden = true;
 

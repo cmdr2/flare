@@ -1,4 +1,4 @@
-import { fs } from '/libs/flare/fs.js';
+import { fs } from '/public/libs/flare/fs.js';
 
 export const SYNC_SOURCE = 'flare-sync';
 export const CREDENTIALS_PATH = '/home/.aws/credentials';
