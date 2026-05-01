@@ -241,7 +241,14 @@ function render() {
 }
 
 function renderTabCollection(container, axis) {
+  const scrollOffset = axis === 'horizontal' ? container.scrollLeft : container.scrollTop;
   container.replaceChildren(...tabs.map((tab) => createTabNode(tab, axis)));
+  if (axis === 'horizontal') {
+    container.scrollLeft = scrollOffset;
+    return;
+  }
+
+  container.scrollTop = scrollOffset;
 }
 
 function createTabNode(tab, axis) {
