@@ -459,7 +459,6 @@ button {
 .toolbar-button.is-active {
   background: var(--accent-soft);
   border-color: rgba(15, 108, 189, 0.22);
-  color: var(--accent);
 }
 
 .content-item.is-drop-target,
