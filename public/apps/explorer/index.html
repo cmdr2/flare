@@ -61,37 +61,61 @@
       <section class="content-shell" aria-label="File browser">
         <div class="content-header">
           <div class="toolbar-group content-actions">
-            <button id="up-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon" type="button" aria-label="Go up" title="Up">
-              <i class="fa-solid fa-arrow-up" aria-hidden="true"></i>
-              <span class="sr-only">Up</span>
-            </button>
-            <button id="new-file-button" class="toolbar-button toolbar-button--icon" type="button" aria-label="Create new file" title="New file">
-              <i class="fa-solid fa-file-circle-plus" aria-hidden="true"></i>
-              <span class="sr-only">New file</span>
-            </button>
-            <button id="new-folder-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon" type="button" aria-label="Create new folder" title="New folder">
-              <i class="fa-solid fa-folder-plus" aria-hidden="true"></i>
-              <span class="sr-only">New folder</span>
-            </button>
-            <button id="rename-selection-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon" type="button" aria-label="Rename selected item" title="Rename selected item" hidden>
-              <i class="fa-solid fa-i-cursor" aria-hidden="true"></i>
-              <span class="sr-only">Rename selected item</span>
-            </button>
-            <button id="pin-selection-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon" type="button" aria-label="Pin selected folder" title="Pin selected folder" hidden>
-              <i class="fa-solid fa-thumbtack" aria-hidden="true"></i>
-              <span class="sr-only">Pin selected folder</span>
-            </button>
-            <button id="unpin-selection-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon" type="button" aria-label="Unpin selected folder" title="Unpin selected folder" hidden>
-              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-              <span class="sr-only">Unpin selected folder</span>
-            </button>
-            <button id="delete-selection-button" class="toolbar-button toolbar-button--danger toolbar-button--icon" type="button" aria-label="Delete selected" title="Delete selected" hidden>
-              <i class="fa-solid fa-trash" aria-hidden="true"></i>
-              <span class="sr-only">Delete selected</span>
-            </button>
-            <button id="clear-selection-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon" type="button" aria-label="Clear selection" title="Clear selection" hidden>
-              <i class="fa-solid fa-rectangle-xmark" aria-hidden="true"></i>
-              <span class="sr-only">Clear selection</span>
+            <div class="toolbar-group content-actions-primary">
+              <button id="up-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon" type="button" aria-label="Go up" title="Up">
+                <i class="fa-solid fa-arrow-up" aria-hidden="true"></i>
+                <span class="sr-only">Up</span>
+              </button>
+              <button id="new-file-button" class="toolbar-button toolbar-button--icon" type="button" aria-label="Create new file" title="New file">
+                <i class="fa-solid fa-file-circle-plus" aria-hidden="true"></i>
+                <span class="sr-only">New file</span>
+              </button>
+              <button id="new-folder-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon" type="button" aria-label="Create new folder" title="New folder">
+                <i class="fa-solid fa-folder-plus" aria-hidden="true"></i>
+                <span class="sr-only">New folder</span>
+              </button>
+            </div>
+
+            <div id="content-actions-divider" class="toolbar-divider content-actions-divider" aria-hidden="true" hidden></div>
+
+            <div id="content-actions-secondary" class="toolbar-group content-actions-secondary" hidden>
+              <button id="cut-selection-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon" type="button" aria-label="Cut selected items" title="Cut selected items" hidden>
+                <i class="fa-solid fa-scissors" aria-hidden="true"></i>
+                <span class="sr-only">Cut selected items</span>
+              </button>
+              <button id="copy-selection-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon" type="button" aria-label="Copy selected items" title="Copy selected items" hidden>
+                <i class="fa-solid fa-copy" aria-hidden="true"></i>
+                <span class="sr-only">Copy selected items</span>
+              </button>
+              <button id="paste-clipboard-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon" type="button" aria-label="Paste into current folder" title="Paste into current folder" hidden>
+                <i class="fa-solid fa-paste" aria-hidden="true"></i>
+                <span class="sr-only">Paste into current folder</span>
+              </button>
+              <button id="rename-selection-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon" type="button" aria-label="Rename selected item" title="Rename selected item" hidden>
+                <i class="fa-solid fa-i-cursor" aria-hidden="true"></i>
+                <span class="sr-only">Rename selected item</span>
+              </button>
+              <button id="pin-selection-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon" type="button" aria-label="Pin selected folder" title="Pin selected folder" hidden>
+                <i class="fa-solid fa-thumbtack" aria-hidden="true"></i>
+                <span class="sr-only">Pin selected folder</span>
+              </button>
+              <button id="unpin-selection-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon" type="button" aria-label="Unpin selected folder" title="Unpin selected folder" hidden>
+                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                <span class="sr-only">Unpin selected folder</span>
+              </button>
+              <button id="delete-selection-button" class="toolbar-button toolbar-button--danger toolbar-button--icon" type="button" aria-label="Delete selected" title="Delete selected" hidden>
+                <i class="fa-solid fa-trash" aria-hidden="true"></i>
+                <span class="sr-only">Delete selected</span>
+              </button>
+              <button id="clear-selection-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon" type="button" aria-label="Clear selection" title="Clear selection" hidden>
+                <i class="fa-solid fa-rectangle-xmark" aria-hidden="true"></i>
+                <span class="sr-only">Clear selection</span>
+              </button>
+            </div>
+
+            <button id="operations-menu-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon operations-menu-button" type="button" aria-label="More actions" title="More actions" hidden>
+              <i class="fa-solid fa-ellipsis" aria-hidden="true"></i>
+              <span class="sr-only">More actions</span>
             </button>
           </div>
 
@@ -189,6 +213,8 @@
       </footer>
     </form>
   </dialog>
+
+  <div id="action-menu" class="action-menu" hidden></div>
 
   <script type="module" src="/public/apps/explorer/explorer.js"></script>
 </body>

@@ -18,12 +18,17 @@ const state = {
   currentView: loadStoredView(),
   currentEntries: [],
   favorites: [],
+  pathTypes: new Map(),
+  clipboardMode: '',
+  clipboardPaths: [],
   draggedFolderPath: '',
+  draggedPaths: [],
   selectionPath: null,
   selectedPaths: new Set(),
   expandedFolders: new Set(['/']),
   sidebarOpen: false,
   createKind: 'file',
+  createTargetFolder: '/',
   renamePath: '',
   editorPath: '',
   editorDirty: false,
@@ -193,11 +198,17 @@ const elements = {
   contentView: document.getElementById('content-view'),
   selectionSummary: document.getElementById('selection-summary'),
   statusMessage: document.getElementById('status-message'),
+  contentActionsDivider: document.getElementById('content-actions-divider'),
+  contentActionsSecondary: document.getElementById('content-actions-secondary'),
+  cutSelectionButton: document.getElementById('cut-selection-button'),
+  copySelectionButton: document.getElementById('copy-selection-button'),
+  pasteClipboardButton: document.getElementById('paste-clipboard-button'),
   clearSelectionButton: document.getElementById('clear-selection-button'),
   renameSelectionButton: document.getElementById('rename-selection-button'),
   pinSelectionButton: document.getElementById('pin-selection-button'),
   unpinSelectionButton: document.getElementById('unpin-selection-button'),
   deleteSelectionButton: document.getElementById('delete-selection-button'),
+  operationsMenuButton: document.getElementById('operations-menu-button'),
   sidebar: document.getElementById('sidebar'),
   sidebarBackdrop: document.getElementById('sidebar-backdrop'),
   sidebarPlaces: document.getElementById('sidebar-places'),
@@ -228,7 +239,8 @@ const elements = {
   alertTitle: document.getElementById('alert-title'),
   alertMessage: document.getElementById('alert-message'),
   alertCloseButton: document.getElementById('alert-close-button'),
-  alertConfirmButton: document.getElementById('alert-confirm-button')
+  alertConfirmButton: document.getElementById('alert-confirm-button'),
+  actionMenu: document.getElementById('action-menu')
 };
 
 bindEvents();
@@ -255,6 +267,11 @@ function bindEvents() {
 
   elements.newFileButton.addEventListener('click', () => openCreateDialog('file'));
   elements.newFolderButton.addEventListener('click', () => openCreateDialog('folder'));
+  elements.cutSelectionButton.addEventListener('click', () => copySelectionToClipboard('cut'));
+  elements.copySelectionButton.addEventListener('click', () => copySelectionToClipboard('copy'));
+  elements.pasteClipboardButton.addEventListener('click', () => {
+    void pasteClipboardInto(state.currentFolder);
+  });
   elements.renameSelectionButton.addEventListener('click', () => openRenameDialog());
   elements.pinSelectionButton.addEventListener('click', () => {
     void pinSelectedFolder();
@@ -266,6 +283,10 @@ function bindEvents() {
     void deleteSelectedItems();
   });
   elements.clearSelectionButton.addEventListener('click', () => clearSelection());
+  elements.operationsMenuButton.addEventListener('click', (event) => {
+    event.stopPropagation();
+    toggleToolbarActionsMenu(elements.operationsMenuButton);
+  });
 
   for (const button of elements.viewButtons) {
     button.addEventListener('click', () => {
@@ -274,7 +295,13 @@ function bindEvents() {
   }
 
   elements.contentView.addEventListener('click', handleBackgroundClick);
+  elements.contentView.addEventListener('contextmenu', handleContentContextMenu);
   bindFavoritesDropzone();
+
+  window.addEventListener('pointerdown', handleGlobalPointerDown, true);
+  window.addEventListener('keydown', handleGlobalKeyDown);
+  window.addEventListener('resize', closeActionMenu);
+  window.addEventListener('blur', closeActionMenu);
 
   elements.editorSaveButton.addEventListener('click', () => {
     void saveEditor();
@@ -322,10 +349,15 @@ async function handleAddressSubmit() {
 
 async function refreshExplorer(message = '') {
   try {
+    closeActionMenu();
     const current = await ensureDirectory(state.currentFolder);
     state.currentFolder = current;
     expandAncestors(current);
     state.currentEntries = await readDirectory(current);
+    state.pathTypes = new Map([[current, 'directory']]);
+    for (const entry of state.currentEntries) {
+      updateKnownPathType(entry.path, entry.type);
+    }
     await loadFavorites();
     const visiblePaths = new Set(state.currentEntries.map((entry) => entry.path));
     state.selectedPaths = new Set(Array.from(state.selectedPaths).filter((path) => visiblePaths.has(path)));
@@ -383,6 +415,7 @@ async function renderContent() {
 }
 
 function createEntryButton(entry) {
+  updateKnownPathType(entry.path, entry.type);
   const button = document.createElement('button');
   button.type = 'button';
   button.dataset.path = entry.path;
@@ -400,8 +433,11 @@ function createEntryButton(entry) {
 
   meta.append(name);
 
+  if (entry.path !== '/') {
+    makeEntryDragSource(button, entry);
+  }
   if (entry.type === 'directory') {
-    makeFolderDragSource(button, entry.path, entry.name);
+    bindFolderDropTarget(button, () => entry.path);
   }
 
   button.append(icon, meta);
@@ -445,7 +481,7 @@ async function buildTreeBranch(path, { includeFiles, rootLabel, behavior = 'side
       const toggle = document.createElement('button');
       toggle.type = 'button';
       toggle.className = 'tree-toggle';
-      toggle.append(createFaIcon(expanded ? 'fa-chevron-down' : 'fa-chevron-right'));
+      toggle.append(createFaIcon(expanded ? 'fa-angle-down' : 'fa-angle-right'));
       toggle.setAttribute('aria-label', (expanded ? 'Collapse ' : 'Expand ') + entry.name);
       toggle.addEventListener('click', () => {
         if (expanded) {
@@ -470,8 +506,9 @@ async function buildTreeBranch(path, { includeFiles, rootLabel, behavior = 'side
   const node = document.createElement('button');
   node.type = 'button';
   node.dataset.path = path;
-  node.className = 'tree-node' + (state.selectedPaths.has(path) || state.currentFolder === path ? ' is-active' : '');
+  node.className = 'tree-node' + (state.selectedPaths.has(path) ? ' is-active' : '');
   node.setAttribute('aria-pressed', String(state.selectedPaths.has(path)));
+  updateKnownPathType(path, entry.type);
   bindEntryInteractions(node, entry, {
     onDesktopSelect() {
       if (behavior === 'content-tree' && entry.type === 'directory') {
@@ -493,8 +530,11 @@ async function buildTreeBranch(path, { includeFiles, rootLabel, behavior = 'side
 
   textWrap.append(label);
   node.append(icon, textWrap);
+  if (path !== '/') {
+    makeEntryDragSource(node, entry);
+  }
   if (entry.type === 'directory') {
-    makeFolderDragSource(node, path, label.textContent);
+    bindFolderDropTarget(node, () => path);
   }
   row.append(node);
   group.append(row);
@@ -549,7 +589,7 @@ function syncSelectedStyles() {
     node.setAttribute('aria-pressed', String(selected));
   }
   for (const node of document.querySelectorAll('.tree-node')) {
-    const active = state.selectedPaths.has(node.dataset.path) || node.dataset.path === state.currentFolder;
+    const active = state.selectedPaths.has(node.dataset.path);
     node.classList.toggle('is-active', active);
     node.setAttribute('aria-pressed', String(state.selectedPaths.has(node.dataset.path)));
   }
@@ -603,15 +643,26 @@ function updateSelectionSummary() {
     return;
   }
 
-  const selected = state.currentEntries.find((entry) => entry.path === state.selectionPath);
-  if (!selected) {
+  const selectedPath = getSingleSelectedPath();
+  if (!selectedPath) {
     elements.selectionSummary.textContent = '1 item selected';
     return;
   }
 
-  elements.selectionSummary.textContent = selected.type === 'directory'
-    ? selected.name + ' • Folder'
-    : selected.name + ' • ' + formatSize(selected.size);
+  const selected = state.currentEntries.find((entry) => entry.path === selectedPath);
+  if (selected) {
+    elements.selectionSummary.textContent = selected.type === 'directory'
+      ? selected.name + ' • Folder'
+      : selected.name + ' • ' + formatSize(selected.size);
+    return;
+  }
+
+  if (isDirectoryPath(selectedPath)) {
+    elements.selectionSummary.textContent = baseName(selectedPath) + ' • Folder';
+    return;
+  }
+
+  elements.selectionSummary.textContent = '1 item selected';
 }
 
 function setStatus(message) {
@@ -656,21 +707,21 @@ async function saveEditor() {
   await refreshExplorer('Saved ' + state.editorPath);
 }
 
-function openCreateDialog(kind) {
+function openCreateDialog(kind, targetFolder = state.currentFolder) {
   state.renamePath = '';
   state.createKind = kind;
+  state.createTargetFolder = normalizePath(targetFolder || state.currentFolder);
   elements.createLabel.textContent = kind === 'folder' ? 'Create folder' : 'Create file';
   elements.createTitle.textContent = kind === 'folder' ? 'New folder' : 'New file';
   elements.createSubmitButton.textContent = kind === 'folder' ? 'Create folder' : 'Create file';
   elements.createNameInput.value = '';
   elements.createError.textContent = '';
-  elements.createTarget.textContent = 'Create in ' + state.currentFolder;
+  elements.createTarget.textContent = 'Create in ' + state.createTargetFolder;
   openDialog(elements.createDialog);
   elements.createNameInput.focus();
 }
 
-function openRenameDialog() {
-  const selectedPath = getSingleSelectedPath();
+function openRenameDialog(selectedPath = getSingleSelectedPath()) {
   if (!selectedPath || selectedPath === '/') {
     return;
   }
@@ -701,7 +752,9 @@ async function createItem() {
     return;
   }
 
-  const targetPath = joinPath(state.currentFolder, name);
+  const targetFolder = normalizePath(state.createTargetFolder || state.currentFolder);
+  const revealTarget = targetFolder === state.currentFolder;
+  const targetPath = joinPath(targetFolder, name);
   try {
     if (await pathExists(targetPath)) {
       throw new Error('An item with that name already exists');
@@ -710,19 +763,31 @@ async function createItem() {
     if (state.createKind === 'folder') {
       await fs.promises.mkdir(targetPath);
       closeDialog(elements.createDialog);
-      state.selectionPath = targetPath;
-      state.selectedPaths = new Set([targetPath]);
-      state.expandedFolders.add(state.currentFolder);
+      if (revealTarget) {
+        state.selectionPath = targetPath;
+        state.selectedPaths = new Set([targetPath]);
+        state.expandedFolders.add(state.currentFolder);
+      } else {
+        state.selectionPath = null;
+        state.selectedPaths.clear();
+      }
       await refreshExplorer('Created folder ' + targetPath);
       return;
     }
 
     closeDialog(elements.createDialog);
     await fs.promises.writeFile(targetPath, '');
-    state.selectionPath = targetPath;
-    state.selectedPaths = new Set([targetPath]);
+    if (revealTarget) {
+      state.selectionPath = targetPath;
+      state.selectedPaths = new Set([targetPath]);
+    } else {
+      state.selectionPath = null;
+      state.selectedPaths.clear();
+    }
     await refreshExplorer('Created file ' + targetPath);
-    await openEditor(targetPath);
+    if (revealTarget) {
+      await openEditor(targetPath);
+    }
   } catch (error) {
     elements.createError.textContent = 'Could not create ' + name + ': ' + error.message;
   }
@@ -990,26 +1055,194 @@ async function pathExists(path) {
   }
 }
 
+function updateKnownPathType(path, type) {
+  state.pathTypes.set(normalizePath(path), type);
+}
+
+function isDirectoryPath(path) {
+  const normalized = normalizePath(path);
+  return normalized === '/' || state.pathTypes.get(normalized) === 'directory';
+}
+
 function loadStoredView() {
   const view = window.localStorage.getItem('flare-explorer-view');
   return ['grid', 'list', 'tree'].includes(view) ? view : 'grid';
 }
 
-function getDeletionTargets() {
-  return Array.from(new Set(Array.from(state.selectedPaths).map((path) => normalizePath(path))))
-    .filter((path) => path !== '/')
+function getTopLevelPaths(paths) {
+  return Array.from(new Set(paths.map((path) => normalizePath(path))))
     .sort((left, right) => left.length - right.length)
     .filter((path, index, all) => !all.slice(0, index).some((parent) => isSamePathOrAncestor(parent, path)));
+}
+
+function getDeletionTargets() {
+  return getTopLevelPaths(Array.from(state.selectedPaths)).filter((path) => path !== '/');
 }
 
 function getSingleSelectedPath() {
   return state.selectedPaths.size === 1 ? normalizePath(Array.from(state.selectedPaths)[0]) : null;
 }
 
-async function deleteSelectedItems() {
-  const targets = getDeletionTargets();
+function hasClipboardData() {
+  return state.clipboardPaths.length > 0;
+}
+
+function formatPathSummary(paths) {
+  return paths.length === 1 ? baseName(paths[0]) : paths.length + ' items';
+}
+
+function clearClipboard() {
+  state.clipboardMode = '';
+  state.clipboardPaths = [];
+  renderSelectionAction();
+}
+
+function copySelectionToClipboard(mode, paths = Array.from(state.selectedPaths)) {
+  const targets = getTopLevelPaths(paths).filter((path) => path !== '/');
   if (targets.length === 0) {
-    if (state.selectedPaths.size > 0) {
+    return;
+  }
+
+  state.clipboardMode = mode;
+  state.clipboardPaths = targets;
+  renderSelectionAction();
+  setStatus((mode === 'cut' ? 'Cut ' : 'Copied ') + formatPathSummary(targets));
+}
+
+async function pasteClipboardInto(destinationPath) {
+  if (!hasClipboardData()) {
+    return;
+  }
+
+  await transferPaths(state.clipboardPaths, destinationPath, state.clipboardMode || 'copy', { fromClipboard: true });
+}
+
+async function transferPaths(paths, destinationPath, mode, { fromClipboard = false } = {}) {
+  const destinationFolder = await ensureDirectory(destinationPath);
+  const sources = getTopLevelPaths(paths).filter((path) => path !== '/');
+  if (sources.length === 0) {
+    return;
+  }
+
+  const operations = [];
+  for (const sourcePath of sources) {
+    if (isDirectoryPath(sourcePath) && isSamePathOrAncestor(sourcePath, destinationFolder)) {
+      throw new Error('Cannot place a folder into itself.');
+    }
+
+    const targetPath = joinPath(destinationFolder, baseName(sourcePath));
+    if (mode === 'move' && parentDir(sourcePath) === destinationFolder) {
+      continue;
+    }
+
+    if (await pathExists(targetPath)) {
+      throw new Error(baseName(targetPath) + ' already exists in ' + destinationFolder + '.');
+    }
+
+    operations.push({ sourcePath, targetPath });
+  }
+
+  if (operations.length === 0) {
+    setStatus('Nothing to ' + mode + '.');
+    return;
+  }
+
+  try {
+    let favoritesChanged = false;
+    for (const operation of operations) {
+      if (mode === 'copy') {
+        await copyPath(operation.sourcePath, operation.targetPath);
+      } else {
+        await fs.promises.rename(operation.sourcePath, operation.targetPath);
+        favoritesChanged = remapFavorites(operation.sourcePath, operation.targetPath) || favoritesChanged;
+      }
+    }
+
+    if (favoritesChanged) {
+      await persistFavoriteChanges(true);
+    }
+
+    if (mode === 'move') {
+      remapSelectionPaths(operations);
+      remapEditorPath(operations);
+      if (fromClipboard) {
+        clearClipboard();
+      }
+    }
+
+    const createdPaths = operations.map((operation) => operation.targetPath);
+    if (destinationFolder === state.currentFolder) {
+      state.selectedPaths = new Set(createdPaths);
+      state.selectionPath = createdPaths.at(-1) || null;
+    } else if (mode !== 'move') {
+      state.selectedPaths.clear();
+      state.selectionPath = null;
+    }
+
+    state.currentFolder = await resolveExistingFolder(state.currentFolder);
+    await refreshExplorer((mode === 'copy' ? 'Copied ' : 'Moved ') + formatPathSummary(sources));
+  } catch (error) {
+    showAlert(mode === 'copy' ? 'Copy failed' : 'Move failed', 'Could not ' + mode + ' ' + formatPathSummary(sources) + ': ' + error.message);
+  }
+}
+
+async function copyPath(sourcePath, targetPath) {
+  const source = normalizePath(sourcePath);
+  const target = normalizePath(targetPath);
+  const stat = await fs.promises.stat(source);
+  if (!stat.isDirectory()) {
+    const content = await fs.promises.readFile(source);
+    await fs.promises.writeFile(target, content);
+    return;
+  }
+
+  await fs.promises.mkdir(target);
+  const children = await fs.promises.readdir(source);
+  for (const child of children) {
+    await copyPath(joinPath(source, child), joinPath(target, child));
+  }
+}
+
+function remapSelectionPaths(operations) {
+  const nextSelection = new Set();
+  let nextSelectionPath = state.selectionPath;
+
+  for (const path of state.selectedPaths) {
+    const matchingOperation = operations.find((operation) => isSamePathOrAncestor(operation.sourcePath, path));
+    if (!matchingOperation) {
+      nextSelection.add(path);
+      continue;
+    }
+
+    const remapped = remapPath(path, matchingOperation.sourcePath, matchingOperation.targetPath);
+    nextSelection.add(remapped);
+    if (path === state.selectionPath) {
+      nextSelectionPath = remapped;
+    }
+  }
+
+  state.selectedPaths = nextSelection;
+  state.selectionPath = nextSelectionPath;
+}
+
+function remapEditorPath(operations) {
+  if (!state.editorPath) {
+    return;
+  }
+
+  const matchingOperation = operations.find((operation) => isSamePathOrAncestor(operation.sourcePath, state.editorPath));
+  if (!matchingOperation) {
+    return;
+  }
+
+  state.editorPath = remapPath(state.editorPath, matchingOperation.sourcePath, matchingOperation.targetPath);
+  elements.editorTitle.textContent = state.editorPath;
+}
+
+async function deleteSelectedItems(paths = Array.from(state.selectedPaths)) {
+  const targets = getTopLevelPaths(paths).filter((path) => path !== '/');
+  if (targets.length === 0) {
+    if (paths.length > 0) {
       showAlert('Delete unavailable', 'The root folder cannot be deleted.');
     }
     return;
@@ -1028,8 +1261,10 @@ async function deleteSelectedItems() {
     await persistFavoriteChanges(pruneFavorites(targets));
 
     resetEditorForDeletedPaths(targets);
-    state.selectedPaths.clear();
-    state.selectionPath = null;
+    state.selectedPaths = new Set(Array.from(state.selectedPaths).filter((path) => !targets.some((target) => isSamePathOrAncestor(target, path))));
+    if (state.selectionPath && !state.selectedPaths.has(state.selectionPath)) {
+      state.selectionPath = Array.from(state.selectedPaths).at(-1) || null;
+    }
     state.currentFolder = await resolveExistingFolder(state.currentFolder);
     await refreshExplorer('Deleted ' + summary);
   } catch (error) {
@@ -1129,7 +1364,20 @@ function bindEntryInteractions(node, entry, { onDesktopSelect } = {}) {
   node.addEventListener('contextmenu', (event) => {
     if (isTouchClick(event)) {
       event.preventDefault();
+      return;
     }
+
+    event.preventDefault();
+    if (!state.selectedPaths.has(entry.path)) {
+      selectPath(entry.path);
+    }
+    openActionMenuAtPoint(event.clientX, event.clientY, buildContextMenuItems({
+      selectedPaths: state.selectedPaths.has(entry.path) ? Array.from(state.selectedPaths) : [entry.path],
+      targetPath: entry.type === 'directory' ? entry.path : state.currentFolder,
+      allowPinPath: entry.type === 'directory' ? entry.path : '',
+      includeNewItems: true,
+      includeClearSelection: false
+    }));
   });
 }
 
@@ -1185,7 +1433,10 @@ function clearSelection() {
 
 function renderSelectionAction() {
   const selectedCount = state.selectedPaths.size;
-  const selectedPath = getSingleSelectedPath();
+  const selectedTargets = getTopLevelPaths(Array.from(state.selectedPaths)).filter((path) => path !== '/');
+  const selectedPath = selectedTargets.length === 1 ? selectedTargets[0] : null;
+  const hasClipboard = hasClipboardData();
+  const canCutCopy = selectedTargets.length > 0;
   const canRename = Boolean(selectedPath && selectedPath !== '/');
   const canPin = Boolean(selectedPath && isSelectedDirectory(selectedPath));
   const isPinnedFolder = Boolean(selectedPath && state.favorites.includes(selectedPath));
@@ -1194,11 +1445,20 @@ function renderSelectionAction() {
   const renameLabel = canRename ? 'Rename ' + baseName(selectedPath) : 'Rename selected item';
   const pinLabel = canPin ? (isPinnedFolder ? 'Pinned: ' + baseName(selectedPath) : 'Pin ' + baseName(selectedPath)) : 'Pin selected folder';
   const unpinLabel = canPin ? 'Unpin ' + baseName(selectedPath) : 'Unpin selected folder';
+  const pasteLabel = hasClipboard ? 'Paste into ' + state.currentFolder : 'Paste into current folder';
+  const showActionSurface = canCutCopy || hasClipboard || canRename || canPin || selectedCount > 0;
+  setActionVisibility(elements.cutSelectionButton, canCutCopy);
+  setActionVisibility(elements.copySelectionButton, canCutCopy);
+  setActionVisibility(elements.pasteClipboardButton, canCutCopy || hasClipboard);
   setActionVisibility(elements.renameSelectionButton, canRename);
   setActionVisibility(elements.pinSelectionButton, canPin);
   setActionVisibility(elements.unpinSelectionButton, canPin && isPinnedFolder);
   setActionVisibility(elements.deleteSelectionButton, selectedCount > 0);
   setActionVisibility(elements.clearSelectionButton, selectedCount > 0);
+  elements.pasteClipboardButton.disabled = !hasClipboard;
+  elements.pasteClipboardButton.setAttribute('aria-label', pasteLabel);
+  elements.pasteClipboardButton.title = pasteLabel;
+  elements.pasteClipboardButton.classList.toggle('is-active', hasClipboard);
   elements.renameSelectionButton.setAttribute('aria-label', renameLabel);
   elements.renameSelectionButton.title = renameLabel;
   elements.pinSelectionButton.setAttribute('aria-label', pinLabel);
@@ -1211,6 +1471,9 @@ function renderSelectionAction() {
   elements.clearSelectionButton.title = label;
   elements.deleteSelectionButton.setAttribute('aria-label', deleteLabel);
   elements.deleteSelectionButton.title = deleteLabel;
+  elements.contentActionsDivider.hidden = !showActionSurface;
+  elements.contentActionsSecondary.hidden = !showActionSurface;
+  elements.operationsMenuButton.hidden = !showActionSurface;
 }
 
 function setActionVisibility(element, visible) {
@@ -1235,11 +1498,27 @@ function createSidebarPlaceButton(place) {
   button.type = 'button';
   button.className = 'sidebar-link' + (state.currentFolder === place.path ? ' is-active' : '');
   button.dataset.path = place.path;
+  updateKnownPathType(place.path, 'directory');
   button.append(createSidebarIcon(place.icon), createSidebarLabel(place.label));
   button.addEventListener('click', () => {
     void navigateTo(place.path);
   });
-  makeFolderDragSource(button, place.path, place.label);
+  bindFolderDropTarget(button, () => place.path);
+  button.addEventListener('contextmenu', (event) => {
+    if (isTouchClick(event)) {
+      event.preventDefault();
+      return;
+    }
+
+    event.preventDefault();
+    openActionMenuAtPoint(event.clientX, event.clientY, buildContextMenuItems({
+      targetPath: place.path,
+      allowPinPath: place.path,
+      includeNewItems: true,
+      includeClearSelection: false,
+      includeSelectionActions: false
+    }));
+  });
   return button;
 }
 
@@ -1263,11 +1542,27 @@ function createFavoriteRow(path) {
   button.type = 'button';
   button.className = 'favorite-link' + (state.currentFolder === path ? ' is-active' : '');
   button.dataset.path = path;
+  updateKnownPathType(path, 'directory');
   button.append(createSidebarIcon('fa-thumbtack'), createSidebarLabel(baseName(path)));
   button.addEventListener('click', () => {
     void navigateTo(path);
   });
-  makeFolderDragSource(button, path, baseName(path));
+  bindFolderDropTarget(button, () => path);
+  button.addEventListener('contextmenu', (event) => {
+    if (isTouchClick(event)) {
+      event.preventDefault();
+      return;
+    }
+
+    event.preventDefault();
+    openActionMenuAtPoint(event.clientX, event.clientY, buildContextMenuItems({
+      targetPath: path,
+      allowPinPath: path,
+      includeNewItems: true,
+      includeClearSelection: false,
+      includeSelectionActions: false
+    }));
+  });
 
   const remove = document.createElement('button');
   remove.type = 'button';
@@ -1310,7 +1605,7 @@ function bindFavoritesDropzone() {
       return;
     }
     event.preventDefault();
-    favoritesDropzone.classList.add('is-dragover');
+    favoritesDropzone.classList.add('is-dragover', 'is-drop-target');
   });
   favoritesDropzone.addEventListener('dragover', (event) => {
     if (!getDraggedFolderPath(event)) {
@@ -1318,64 +1613,130 @@ function bindFavoritesDropzone() {
     }
     event.preventDefault();
     event.dataTransfer.dropEffect = 'copy';
-    favoritesDropzone.classList.add('is-dragover');
+    favoritesDropzone.classList.add('is-dragover', 'is-drop-target');
   });
   favoritesDropzone.addEventListener('dragleave', (event) => {
     if (event.relatedTarget && favoritesDropzone.contains(event.relatedTarget)) {
       return;
     }
-    favoritesDropzone.classList.remove('is-dragover');
+    favoritesDropzone.classList.remove('is-dragover', 'is-drop-target');
   });
   favoritesDropzone.addEventListener('drop', (event) => {
     const path = getDraggedFolderPath(event);
-    favoritesDropzone.classList.remove('is-dragover');
+    favoritesDropzone.classList.remove('is-dragover', 'is-drop-target');
     if (!path) {
       return;
     }
     event.preventDefault();
     state.draggedFolderPath = '';
+    state.draggedPaths = [];
     void pinFolder(path);
   });
 }
 
-function makeFolderDragSource(node, path, label) {
+function makeEntryDragSource(node, entry) {
   node.draggable = true;
   node.addEventListener('dragstart', (event) => {
-    state.draggedFolderPath = path;
-    state.suppressedClickPath = path;
+    const draggedPaths = state.selectedPaths.has(entry.path)
+      ? getTopLevelPaths(Array.from(state.selectedPaths)).filter((path) => path !== '/')
+      : [entry.path].filter((path) => path !== '/');
+
+    if (draggedPaths.length === 0) {
+      event.preventDefault();
+      return;
+    }
+
+    state.draggedPaths = draggedPaths;
+    state.draggedFolderPath = entry.type === 'directory' && draggedPaths.length === 1 ? entry.path : '';
+    state.suppressedClickPath = entry.path;
     if (!event.dataTransfer) {
       return;
     }
-    event.dataTransfer.effectAllowed = 'copy';
-    event.dataTransfer.setData('text/plain', path);
-    event.dataTransfer.setData('application/x-flare-folder', path);
-    event.dataTransfer.setData('application/x-flare-folder-label', label);
-  });
-  node.addEventListener('dragend', () => {
-    if (state.draggedFolderPath === path) {
-      state.draggedFolderPath = '';
+    event.dataTransfer.effectAllowed = 'copyMove';
+    event.dataTransfer.setData('text/plain', entry.path);
+    event.dataTransfer.setData('application/x-flare-paths', JSON.stringify(draggedPaths));
+    if (entry.type === 'directory' && draggedPaths.length === 1) {
+      event.dataTransfer.setData('application/x-flare-folder', entry.path);
     }
   });
+  node.addEventListener('dragend', () => {
+    state.draggedFolderPath = '';
+    state.draggedPaths = [];
+  });
+}
+
+function getDraggedPaths(event) {
+  const raw = event.dataTransfer?.getData('application/x-flare-paths');
+  if (raw) {
+    try {
+      return JSON.parse(raw).map((path) => normalizePath(path));
+    } catch {
+    }
+  }
+  return state.draggedPaths.map((path) => normalizePath(path));
 }
 
 function getDraggedFolderPath(event) {
-  return event.dataTransfer?.getData('application/x-flare-folder') || event.dataTransfer?.getData('text/plain') || state.draggedFolderPath;
+  const folderPath = event.dataTransfer?.getData('application/x-flare-folder');
+  if (folderPath) {
+    return normalizePath(folderPath);
+  }
+
+  const draggedPaths = getDraggedPaths(event);
+  return draggedPaths.length === 1 && isDirectoryPath(draggedPaths[0]) ? draggedPaths[0] : state.draggedFolderPath;
+}
+
+function bindFolderDropTarget(node, getTargetPath) {
+  node.addEventListener('dragenter', (event) => {
+    if (!getDraggedPaths(event).length) {
+      return;
+    }
+    event.preventDefault();
+    node.classList.add('is-drop-target');
+  });
+
+  node.addEventListener('dragover', (event) => {
+    const draggedPaths = getDraggedPaths(event);
+    if (!draggedPaths.length) {
+      return;
+    }
+    event.preventDefault();
+    event.dataTransfer.dropEffect = event.ctrlKey ? 'copy' : 'move';
+    node.classList.add('is-drop-target');
+  });
+
+  node.addEventListener('dragleave', (event) => {
+    if (event.relatedTarget && node.contains(event.relatedTarget)) {
+      return;
+    }
+    node.classList.remove('is-drop-target');
+  });
+
+  node.addEventListener('drop', (event) => {
+    const draggedPaths = getDraggedPaths(event);
+    node.classList.remove('is-drop-target');
+    if (!draggedPaths.length) {
+      return;
+    }
+    event.preventDefault();
+    state.draggedFolderPath = '';
+    state.draggedPaths = [];
+    void transferPaths(draggedPaths, getTargetPath(), event.ctrlKey ? 'copy' : 'move');
+  });
 }
 
 function isSelectedDirectory(path) {
-  return state.currentEntries.some((entry) => entry.path === path && entry.type === 'directory');
+  return isDirectoryPath(path);
 }
 
-async function pinSelectedFolder() {
-  const selectedPath = getSingleSelectedPath();
+async function pinSelectedFolder(selectedPath = getSingleSelectedPath()) {
   if (!selectedPath || !isSelectedDirectory(selectedPath)) {
     return;
   }
   await pinFolder(selectedPath);
 }
 
-async function unpinSelectedFolder() {
-  const selectedPath = getSingleSelectedPath();
+async function unpinSelectedFolder(selectedPath = getSingleSelectedPath()) {
   if (!selectedPath) {
     return;
   }
@@ -1492,6 +1853,187 @@ function remapPath(path, sourcePath, targetPath) {
 function comparePathsByName(left, right) {
   return baseName(left).localeCompare(baseName(right), undefined, { sensitivity: 'base' })
     || left.localeCompare(right, undefined, { sensitivity: 'base' });
+}
+
+function buildActionMenuItems({
+  selectedPaths = [],
+  targetPath = state.currentFolder,
+  allowPinPath = '',
+  includeNewItems = false,
+  includeClearSelection = false,
+  includeSelectionActions = true
+} = {}) {
+  const items = [];
+  const selectionTargets = getTopLevelPaths(selectedPaths).filter((path) => path !== '/');
+  const singleSelectionPath = selectionTargets.length === 1 ? selectionTargets[0] : '';
+  const pinPath = allowPinPath || (singleSelectionPath && isDirectoryPath(singleSelectionPath) ? singleSelectionPath : '');
+  const hasClipboard = hasClipboardData();
+
+  if (includeSelectionActions && selectionTargets.length > 0) {
+    items.push({ label: 'Cut', icon: 'fa-scissors', action: () => copySelectionToClipboard('cut', selectionTargets) });
+    items.push({ label: 'Copy', icon: 'fa-copy', action: () => copySelectionToClipboard('copy', selectionTargets) });
+  }
+
+  items.push({
+    label: 'Paste',
+    icon: 'fa-paste',
+    disabled: !hasClipboard,
+    action: () => pasteClipboardInto(targetPath)
+  });
+
+  if (includeSelectionActions && singleSelectionPath && singleSelectionPath !== '/') {
+    items.push({ label: 'Rename', icon: 'fa-i-cursor', action: () => openRenameDialog(singleSelectionPath) });
+  }
+
+  if (pinPath && pinPath !== '/') {
+    const pinned = state.favorites.includes(pinPath);
+    items.push({
+      label: pinned ? 'Unpin' : 'Pin',
+      icon: pinned ? 'fa-xmark' : 'fa-thumbtack',
+      action: () => (pinned ? unpinSelectedFolder(pinPath) : pinSelectedFolder(pinPath))
+    });
+  }
+
+  if (includeSelectionActions && selectionTargets.length > 0) {
+    items.push({ label: 'Delete', icon: 'fa-trash', danger: true, action: () => deleteSelectedItems(selectionTargets) });
+  }
+
+  if (includeClearSelection && state.selectedPaths.size > 0) {
+    items.push({ label: 'Clear selection', icon: 'fa-rectangle-xmark', action: () => clearSelection() });
+  }
+
+  if (includeNewItems) {
+    items.push({ type: 'divider' });
+    items.push({ label: 'New file', icon: 'fa-file-circle-plus', action: () => openCreateDialog('file', targetPath) });
+    items.push({ label: 'New folder', icon: 'fa-folder-plus', action: () => openCreateDialog('folder', targetPath) });
+  }
+
+  while (items[0]?.type === 'divider') {
+    items.shift();
+  }
+  while (items.at(-1)?.type === 'divider') {
+    items.pop();
+  }
+
+  return items;
+}
+
+function buildContextMenuItems(options) {
+  return buildActionMenuItems(options).filter((item, index, all) => item.type !== 'divider' || (index > 0 && index < all.length - 1));
+}
+
+function toggleToolbarActionsMenu(button) {
+  if (!elements.actionMenu.hidden && elements.actionMenu.dataset.mode === 'toolbar') {
+    closeActionMenu();
+    return;
+  }
+
+  openActionMenuNearElement(button, buildActionMenuItems({
+    selectedPaths: Array.from(state.selectedPaths),
+    targetPath: state.currentFolder,
+    includeClearSelection: true,
+    includeSelectionActions: true
+  }), 'toolbar');
+}
+
+function renderActionMenu(items) {
+  if (items.length === 0) {
+    closeActionMenu();
+    return false;
+  }
+
+  elements.actionMenu.replaceChildren(...items.map((item) => {
+    if (item.type === 'divider') {
+      const divider = document.createElement('div');
+      divider.className = 'action-menu-divider';
+      return divider;
+    }
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'action-menu-button' + (item.danger ? ' action-menu-button--danger' : '');
+    button.disabled = Boolean(item.disabled);
+    button.append(createFaIcon(item.icon), document.createTextNode(item.label));
+    button.addEventListener('click', () => {
+      closeActionMenu();
+      if (!item.disabled) {
+        void item.action();
+      }
+    });
+    return button;
+  }));
+  elements.actionMenu.hidden = false;
+  return true;
+}
+
+function positionActionMenu(left, top) {
+  const margin = 8;
+  const menuWidth = elements.actionMenu.offsetWidth;
+  const menuHeight = elements.actionMenu.offsetHeight;
+  const clampedLeft = Math.max(margin, Math.min(left, window.innerWidth - menuWidth - margin));
+  const clampedTop = Math.max(margin, Math.min(top, window.innerHeight - menuHeight - margin));
+  elements.actionMenu.style.left = clampedLeft + 'px';
+  elements.actionMenu.style.top = clampedTop + 'px';
+}
+
+function openActionMenuAtPoint(x, y, items, mode = 'context') {
+  if (!renderActionMenu(items)) {
+    return;
+  }
+  elements.actionMenu.dataset.mode = mode;
+  positionActionMenu(x, y);
+}
+
+function openActionMenuNearElement(element, items, mode = 'toolbar') {
+  if (!renderActionMenu(items)) {
+    return;
+  }
+  const rect = element.getBoundingClientRect();
+  elements.actionMenu.dataset.mode = mode;
+  positionActionMenu(rect.right - elements.actionMenu.offsetWidth, rect.bottom + 6);
+}
+
+function closeActionMenu() {
+  if (elements.actionMenu.hidden) {
+    return;
+  }
+  elements.actionMenu.hidden = true;
+  elements.actionMenu.replaceChildren();
+  delete elements.actionMenu.dataset.mode;
+}
+
+function handleGlobalPointerDown(event) {
+  if (elements.actionMenu.hidden) {
+    return;
+  }
+  if (event.target.closest('#action-menu, #operations-menu-button')) {
+    return;
+  }
+  closeActionMenu();
+}
+
+function handleGlobalKeyDown(event) {
+  if (event.key === 'Escape') {
+    closeActionMenu();
+  }
+}
+
+function handleContentContextMenu(event) {
+  if (isTouchClick(event)) {
+    event.preventDefault();
+    return;
+  }
+  if (event.target.closest('.content-item, .tree-node, .tree-toggle')) {
+    return;
+  }
+
+  event.preventDefault();
+  openActionMenuAtPoint(event.clientX, event.clientY, buildContextMenuItems({
+    targetPath: state.currentFolder,
+    includeNewItems: true,
+    includeClearSelection: false,
+    includeSelectionActions: false
+  }));
 }
 
 async function ensureDir(path) {

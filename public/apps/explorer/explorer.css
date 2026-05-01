@@ -93,7 +93,30 @@ button {
 }
 
 .content-actions {
+  gap: 0;
   flex-wrap: wrap;
+}
+
+.content-actions-primary,
+.content-actions-secondary {
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.content-actions-secondary {
+  flex: 1 1 auto;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  margin: 0 8px;
+  background: rgba(194, 205, 221, 0.95);
+  flex: none;
+}
+
+.toolbar-button.operations-menu-button {
+  display: none;
 }
 
 .toolbar-button,
@@ -360,6 +383,15 @@ button {
   color: var(--accent);
 }
 
+.content-item.is-drop-target,
+.tree-node.is-drop-target,
+.sidebar-link.is-drop-target,
+.favorite-link.is-drop-target,
+.favorites-dropzone.is-drop-target {
+  background: rgba(15, 108, 189, 0.1);
+  border-color: rgba(15, 108, 189, 0.32);
+}
+
 .sidebar-link-meta,
 .favorite-empty {
   min-width: 0;
@@ -383,6 +415,7 @@ button {
   align-items: center;
   gap: 3px;
   min-height: 22px;
+  padding-left: 3px;
 }
 
 .tree-spacer {
@@ -400,6 +433,7 @@ button {
   color: #637789;
   cursor: pointer;
   border-radius: 6px;
+  font-size: 0.95rem;
 }
 
 .tree-toggle:hover {
@@ -696,6 +730,56 @@ button {
   backdrop-filter: blur(6px);
 }
 
+.action-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1300;
+  min-width: 220px;
+  max-width: min(calc(100vw - 16px), 280px);
+  padding: 6px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.74);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 2px;
+}
+
+.action-menu-button {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.action-menu-button:hover {
+  background: rgba(15, 108, 189, 0.06);
+}
+
+.action-menu-button:disabled {
+  opacity: 0.52;
+  cursor: default;
+}
+
+.action-menu-button--danger {
+  color: var(--danger);
+}
+
+.action-menu-divider {
+  height: 1px;
+  margin: 4px 2px;
+  background: rgba(213, 223, 235, 0.95);
+}
+
 .modal-card {
   width: min(720px, calc(100vw - 24px));
   max-width: 100%;
@@ -860,6 +944,18 @@ button {
 
   .content-actions {
     width: 100%;
+  }
+
+  .content-actions-secondary {
+    display: none;
+  }
+
+  .toolbar-button.operations-menu-button {
+    display: inline-grid;
+  }
+
+  .content-actions-divider {
+    margin: 0 6px;
   }
 
   .content-view,
