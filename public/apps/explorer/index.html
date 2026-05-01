@@ -6,6 +6,8 @@
   <meta name="theme-color" content="#0f6cbd">
   <link rel="manifest" href="/public/apps/explorer/manifest.webmanifest">
   <link rel="icon" href="/public/apps/explorer/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/public/libs/fontawesome/css/fontawesome.min.css">
+  <link rel="stylesheet" href="/public/libs/fontawesome/css/solid.min.css">
   <link rel="stylesheet" href="/public/apps/explorer/explorer.css">
   <title>Explorer</title>
 </head>
@@ -17,11 +19,14 @@
       <form id="address-form" class="address-form" autocomplete="off">
         <label class="sr-only" for="address-input">Folder path</label>
         <div class="address-row">
-          <button id="sidebar-toggle" class="toolbar-button toolbar-button--ghost sidebar-toggle-inline" type="button" aria-expanded="false" aria-controls="sidebar" aria-label="Toggle folders">
-            <span class="sidebar-toggle-icon" aria-hidden="true"></span>
+          <button id="sidebar-toggle" class="toolbar-button toolbar-button--ghost toolbar-button--icon sidebar-toggle-inline" type="button" aria-expanded="false" aria-controls="sidebar" aria-label="Toggle places" title="Places">
+            <i class="fa-solid fa-bars-staggered" aria-hidden="true"></i>
+            <span class="sr-only">Toggle places</span>
           </button>
           <div class="address-shell">
-            <span class="address-prefix" aria-hidden="true"></span>
+            <span class="address-prefix" aria-hidden="true">
+              <i class="fa-solid fa-folder-tree"></i>
+            </span>
             <input id="address-input" class="address-input" type="text" spellcheck="false" placeholder="/">
           </div>
         </div>
@@ -29,12 +34,26 @@
     </header>
 
     <div class="explorer-shell">
-      <aside id="sidebar" class="sidebar" aria-label="Folder tree">
+      <aside id="sidebar" class="sidebar" aria-label="Places">
         <div class="sidebar-header">
-          <span>Folders</span>
-          <button id="collapse-sidebar-button" class="toolbar-button toolbar-button--ghost sidebar-close" type="button">Close</button>
+          <span>Places</span>
+          <button id="collapse-sidebar-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon sidebar-close" type="button" aria-label="Close places" title="Close places">
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            <span class="sr-only">Close places</span>
+          </button>
         </div>
-        <div id="sidebar-tree" class="tree-panel"></div>
+        <div class="sidebar-panel">
+          <div id="sidebar-places" class="sidebar-list" aria-label="Common locations"></div>
+          <div class="sidebar-divider" role="separator" aria-hidden="true"></div>
+          <section class="favorites-panel" aria-labelledby="favorites-heading">
+            <div class="favorites-header">
+              <span id="favorites-heading">Favorites</span>
+            </div>
+            <div id="favorites-dropzone" class="favorites-dropzone">
+              <div id="sidebar-favorites" class="sidebar-list sidebar-list--favorites" aria-live="polite"></div>
+            </div>
+          </section>
+        </div>
       </aside>
 
       <div id="sidebar-backdrop" class="sidebar-backdrop" hidden></div>
@@ -42,16 +61,53 @@
       <section class="content-shell" aria-label="File browser">
         <div class="content-header">
           <div class="toolbar-group content-actions">
-            <button id="up-button" class="toolbar-button toolbar-button--ghost" type="button">Up</button>
-            <button id="new-file-button" class="toolbar-button" type="button">New file</button>
-            <button id="new-folder-button" class="toolbar-button toolbar-button--ghost" type="button">New folder</button>
-            <button id="clear-selection-button" class="toolbar-button toolbar-button--ghost" type="button" hidden>Clear selection</button>
+            <button id="up-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon" type="button" aria-label="Go up" title="Up">
+              <i class="fa-solid fa-arrow-up" aria-hidden="true"></i>
+              <span class="sr-only">Up</span>
+            </button>
+            <button id="new-file-button" class="toolbar-button toolbar-button--icon" type="button" aria-label="Create new file" title="New file">
+              <i class="fa-solid fa-file-circle-plus" aria-hidden="true"></i>
+              <span class="sr-only">New file</span>
+            </button>
+            <button id="new-folder-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon" type="button" aria-label="Create new folder" title="New folder">
+              <i class="fa-solid fa-folder-plus" aria-hidden="true"></i>
+              <span class="sr-only">New folder</span>
+            </button>
+            <button id="rename-selection-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon" type="button" aria-label="Rename selected item" title="Rename selected item" hidden>
+              <i class="fa-solid fa-i-cursor" aria-hidden="true"></i>
+              <span class="sr-only">Rename selected item</span>
+            </button>
+            <button id="pin-selection-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon" type="button" aria-label="Pin selected folder" title="Pin selected folder" hidden>
+              <i class="fa-solid fa-thumbtack" aria-hidden="true"></i>
+              <span class="sr-only">Pin selected folder</span>
+            </button>
+            <button id="unpin-selection-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon" type="button" aria-label="Unpin selected folder" title="Unpin selected folder" hidden>
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+              <span class="sr-only">Unpin selected folder</span>
+            </button>
+            <button id="delete-selection-button" class="toolbar-button toolbar-button--danger toolbar-button--icon" type="button" aria-label="Delete selected" title="Delete selected" hidden>
+              <i class="fa-solid fa-trash" aria-hidden="true"></i>
+              <span class="sr-only">Delete selected</span>
+            </button>
+            <button id="clear-selection-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon" type="button" aria-label="Clear selection" title="Clear selection" hidden>
+              <i class="fa-solid fa-rectangle-xmark" aria-hidden="true"></i>
+              <span class="sr-only">Clear selection</span>
+            </button>
           </div>
 
           <div class="view-switcher" role="tablist" aria-label="View mode">
-            <button class="view-button" type="button" data-view="grid" role="tab" aria-selected="true">Large icons</button>
-            <button class="view-button" type="button" data-view="list" role="tab" aria-selected="false">List</button>
-            <button class="view-button" type="button" data-view="tree" role="tab" aria-selected="false">Tree</button>
+            <button class="view-button view-button--icon" type="button" data-view="grid" role="tab" aria-selected="true" aria-label="Large icons view" title="Large icons">
+              <i class="fa-solid fa-table-cells-large" aria-hidden="true"></i>
+              <span class="sr-only">Large icons</span>
+            </button>
+            <button class="view-button view-button--icon" type="button" data-view="list" role="tab" aria-selected="false" aria-label="List view" title="List">
+              <i class="fa-solid fa-list" aria-hidden="true"></i>
+              <span class="sr-only">List</span>
+            </button>
+            <button class="view-button view-button--icon" type="button" data-view="tree" role="tab" aria-selected="false" aria-label="Tree view" title="Tree">
+              <i class="fa-solid fa-folder-tree" aria-hidden="true"></i>
+              <span class="sr-only">Tree</span>
+            </button>
           </div>
         </div>
 
@@ -72,7 +128,10 @@
           <p class="modal-label">Text editor</p>
           <h2 id="editor-title">Open file</h2>
         </div>
-        <button id="editor-close-button" class="toolbar-button toolbar-button--ghost modal-close-button" type="button" aria-label="Close editor">X</button>
+        <button id="editor-close-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon modal-close-button" type="button" aria-label="Close editor" title="Close editor">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+          <span class="sr-only">Close editor</span>
+        </button>
       </header>
 
       <textarea id="editor-textarea" class="editor-textarea" spellcheck="false" placeholder="File contents"></textarea>
@@ -116,7 +175,10 @@
           <p class="modal-label">Explorer</p>
           <h2 id="alert-title">Invalid address</h2>
         </div>
-        <button id="alert-close-button" class="toolbar-button toolbar-button--ghost modal-close-button" type="submit" aria-label="Close message">X</button>
+        <button id="alert-close-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon modal-close-button" type="submit" aria-label="Close message" title="Close message">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+          <span class="sr-only">Close message</span>
+        </button>
       </header>
 
       <p id="alert-message" class="helper-text"></p>

@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v0.3.0';
+const CACHE_VERSION = 'v0.4.0';
 const CACHE_NAME = 'flare-shell-' + CACHE_VERSION;
 const APP_SHELLS = {
     '/public/apps/explorer/': '/public/apps/explorer/index.html',
@@ -39,6 +39,10 @@ const PRECACHE_URLS = [
     '/public/apps/sync/icon.svg',
     '/public/apps/sync/sync.js',
     '/public/apps/sync/syncbar.js',
+    '/public/libs/fontawesome/css/fontawesome.min.css',
+    '/public/libs/fontawesome/css/solid.min.css',
+    '/public/libs/fontawesome/webfonts/fa-solid-900.woff2',
+    '/public/libs/fontawesome/webfonts/fa-solid-900.ttf',
     '/public/libs/flare/fs.js',
     '/public/libs/flare/pwa.js',
     '/public/libs/lightning-fs.bundle.mjs',

@@ -4,16 +4,37 @@ const SYNC_ORIGIN = window.location.origin;
 const SYNC_SOURCE = 'flare-sync';
 const SYNC_URL = '/public/apps/sync/index.html';
 const IFRAME_TIMEOUT_MS = 5000;
+const FONT_AWESOME_STYLES = [
+    '/public/libs/fontawesome/css/fontawesome.min.css',
+    '/public/libs/fontawesome/css/solid.min.css'
+];
 const DIRTY_EXCLUDED_PATHS = new Set([
     '/home/.aws/credentials',
     '/home/.sync/.local',
     '/home/.sync/.remote'
 ]);
 
+const STATUS_META = {
+    connecting: { label: 'Connecting..', icon: 'fa-link', tone: 'pending' },
+    checking: { label: 'Checking..', icon: 'fa-arrows-rotate', tone: 'pending', spin: true },
+    syncing: { label: 'Syncing..', icon: 'fa-arrows-rotate', tone: 'pending', spin: true },
+    upload: { label: 'Uploading', icon: 'fa-cloud-arrow-up', tone: 'pending' },
+    download: { label: 'Downloading', icon: 'fa-cloud-arrow-down', tone: 'pending' },
+    removing: { label: 'Removing', icon: 'fa-trash', tone: 'warning' },
+    'needs-sync': { label: 'Needs sync', icon: 'fa-rotate', tone: 'warning' },
+    'up-to-date': { label: 'Up-to-date', icon: 'fa-circle-check', tone: 'success' },
+    offline: { label: 'Offline', icon: 'fa-cloud-slash', tone: 'muted' },
+    error: { label: 'Error', icon: 'fa-circle-exclamation', tone: 'danger' },
+    failed: { label: 'Failed to sync', icon: 'fa-triangle-exclamation', tone: 'danger' },
+    'setup-needed': { label: 'Setup needed', icon: 'fa-screwdriver-wrench', tone: 'warning' }
+};
+
 let syncFrame = null;
 let syncReady = false;
 let syncButton = null;
 let statusNode = null;
+let statusIconNode = null;
+let statusTextNode = null;
 let progressNode = null;
 let progressCountNode = null;
 let setupLink = null;
@@ -23,84 +44,155 @@ let isSyncing = false;
 let reloadAfterCheck = false;
 let localDirty = false;
 
+ensureFontAwesomeStyles();
 mountSyncBar();
 patchLightningFs();
 ensureSyncFrame();
 window.addEventListener('message', handleMessage);
 
+function ensureFontAwesomeStyles() {
+        for (const href of FONT_AWESOME_STYLES) {
+                if (document.querySelector('link[href="' + href + '"]')) {
+                        continue;
+                }
+
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = href;
+                document.head.appendChild(link);
+        }
+}
+
 function mountSyncBar() {
     const style = document.createElement('style');
     style.textContent = `
     .flare-sync-bar {
-      position: fixed;
-      inset: 0 0 auto 0;
-      z-index: 1000;
-      display: flex;
-      align-items: center;
-            gap: 10px;
-            padding: 8px 14px;
-      background: rgba(22, 24, 29, 0.92);
-      color: #f5efe6;
-      font: 14px/1.2 Georgia, 'Times New Roman', serif;
-      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.14);
-      backdrop-filter: blur(12px);
+        position: fixed;
+        inset: 0 0 auto 0;
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 14px;
+        background: rgba(18, 24, 32, 0.9);
+        color: #eef5ff;
+        font: 13px/1.2 'Segoe UI', system-ui, sans-serif;
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
+        backdrop-filter: blur(12px);
     }
 
     .flare-sync-button {
-      border: 0;
-      border-radius: 999px;
-            padding: 6px 12px;
-      background: #dcb06a;
-      color: #1a1712;
-      font: inherit;
-      cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 999px;
+        padding: 7px 12px;
+        background: linear-gradient(180deg, #f5cd83 0%, #e0a84b 100%);
+        color: #24180c;
+        font: inherit;
+        cursor: pointer;
     }
 
     .flare-sync-button:disabled {
-      opacity: 0.45;
-      cursor: default;
+        opacity: 0.45;
+        cursor: default;
     }
 
     .flare-sync-status {
-      min-width: 88px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        padding: 6px 10px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.08);
+        color: #eef5ff;
     }
 
-        .flare-sync-progress {
-            --progress-ratio: 0;
-            position: relative;
-            display: inline-grid;
-            place-items: center;
-            width: 34px;
-            height: 34px;
-            border-radius: 50%;
-            background: conic-gradient(#dcb06a calc(var(--progress-ratio) * 1turn), rgba(255, 255, 255, 0.18) 0);
-            flex: none;
-        }
+    .flare-sync-status[data-tone="success"] {
+        color: #c4f0d4;
+    }
 
-        .flare-sync-progress[hidden] {
-            display: none;
-        }
+    .flare-sync-status[data-tone="warning"] {
+        color: #ffe2a9;
+    }
 
-        .flare-sync-progress::before {
-            content: '';
-            position: absolute;
-            inset: 4px;
-            border-radius: 50%;
-            background: rgba(22, 24, 29, 0.96);
-            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
-        }
+    .flare-sync-status[data-tone="danger"] {
+        color: #ffb7ae;
+    }
 
-        .flare-sync-progress-count {
-            position: relative;
-            z-index: 1;
-            font: 10px/1.05 'Segoe UI', system-ui, sans-serif;
-            color: #f5efe6;
-            text-align: center;
-            white-space: pre;
-        }
+    .flare-sync-status[data-tone="muted"] {
+        color: #c8d3de;
+    }
+
+    .flare-sync-status-icon {
+        width: 16px;
+        display: inline-grid;
+        place-items: center;
+        flex: none;
+    }
+
+    .flare-sync-progress {
+        --progress-ratio: 0;
+        position: relative;
+        display: inline-grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        background: conic-gradient(#f2c16e calc(var(--progress-ratio) * 1turn), rgba(255, 255, 255, 0.18) 0);
+        flex: none;
+    }
+
+    .flare-sync-progress[hidden] {
+        display: none;
+    }
+
+    .flare-sync-progress::before {
+        content: '';
+        position: absolute;
+        inset: 4px;
+        border-radius: 50%;
+        background: rgba(18, 24, 32, 0.96);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+    }
+
+    .flare-sync-progress-count {
+        position: relative;
+        z-index: 1;
+        font: 10px/1.05 'Segoe UI', system-ui, sans-serif;
+        color: #f5efe6;
+        text-align: center;
+        white-space: pre;
+    }
 
     .flare-sync-link {
-      color: #f3c992;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #f3c992;
+        text-decoration: none;
+    }
+
+    .flare-sync-link:hover {
+        color: #ffe0a8;
+    }
+
+    @media (max-width: 640px) {
+        .flare-sync-bar {
+            gap: 8px;
+            padding: 7px 10px;
+        }
+
+        .flare-sync-status {
+            padding-inline: 8px;
+        }
+
+        .flare-sync-button-text,
+        .flare-sync-link-text {
+            display: none;
+        }
     }
   `;
     document.head.appendChild(style);
@@ -111,13 +203,18 @@ function mountSyncBar() {
     syncButton = document.createElement('button');
     syncButton.className = 'flare-sync-button';
     syncButton.type = 'button';
-    syncButton.textContent = 'Sync';
+    syncButton.append(createSyncIcon('fa-arrows-rotate'), createSyncLabel('Sync', 'flare-sync-button-text'));
     syncButton.disabled = true;
     syncButton.addEventListener('click', handleSyncClick);
 
     statusNode = document.createElement('span');
     statusNode.className = 'flare-sync-status';
-    statusNode.textContent = 'Connecting..';
+    statusIconNode = document.createElement('span');
+    statusIconNode.className = 'flare-sync-status-icon';
+    statusTextNode = document.createElement('span');
+    statusTextNode.className = 'flare-sync-status-text';
+    statusNode.append(statusIconNode, statusTextNode);
+    setStatus('connecting');
 
     progressNode = document.createElement('span');
     progressNode.className = 'flare-sync-progress';
@@ -130,7 +227,7 @@ function mountSyncBar() {
     setupLink = document.createElement('a');
     setupLink.className = 'flare-sync-link';
     setupLink.href = '/public/apps/sync/';
-    setupLink.textContent = 'Open setup';
+    setupLink.append(createSyncIcon('fa-screwdriver-wrench'), createSyncLabel('Open setup', 'flare-sync-link-text'));
     setupLink.hidden = true;
 
     bar.append(syncButton, statusNode, progressNode, setupLink);
@@ -143,6 +240,7 @@ function ensureSyncFrame() {
     }
 
     setStatus('Connecting..');
+    setStatus('connecting');
     syncFrame = document.createElement('iframe');
     syncFrame.hidden = true;
     syncFrame.src = SYNC_URL;
@@ -155,7 +253,7 @@ function startIframeTimeout() {
     clearTimeout(iframeTimeout);
     iframeTimeout = window.setTimeout(() => {
         if (!syncReady) {
-            setStatus('Offline');
+            setStatus('offline');
             setSyncEnabled(false);
         }
     }, IFRAME_TIMEOUT_MS);
@@ -180,7 +278,7 @@ function handleMessage(event) {
         syncReady = true;
         clearTimeout(iframeTimeout);
         clearProgress();
-        setStatus('Checking..');
+        setStatus('checking');
         sendSyncMessage('check');
         return;
     }
@@ -204,7 +302,7 @@ function handleMessage(event) {
             payload: event.data.payload
         });
         clearProgress();
-        setStatus('Checking..');
+        setStatus('checking');
         sendSyncMessage('check');
         return;
     }
@@ -217,7 +315,7 @@ function handleMessage(event) {
             payload: event.data.payload
         });
         clearProgress();
-        setStatus('Failed to sync');
+        setStatus('failed');
         showSetupLink(event.data.payload?.code === 'setup-needed');
         setSyncEnabled(true);
     }
@@ -227,7 +325,7 @@ function handleSyncProgress(payload) {
     const phase = payload.phase;
 
     if (phase === 'upload' || phase === 'download') {
-        setStatus(phase === 'upload' ? 'Uploading' : 'Downloading');
+        setStatus(phase);
         if (Number.isFinite(payload.total) && payload.total > 0) {
             setProgress(payload.completed ?? 0, payload.total);
         }
@@ -237,16 +335,16 @@ function handleSyncProgress(payload) {
     clearProgress();
 
     if (phase === 'local-delete' || phase === 'remote-delete') {
-        setStatus('Removing');
+        setStatus('removing');
         return;
     }
 
     if (phase === 'noop') {
-        setStatus('Up-to-date');
+        setStatus('up-to-date');
         return;
     }
 
-    setStatus(payload.message || 'Syncing..');
+    setStatus('syncing', payload.message || STATUS_META.syncing.label);
 }
 
 function handleSyncStatus(status) {
@@ -266,7 +364,7 @@ function handleSyncStatus(status) {
 
     if (localDirty) {
         console.log('[syncbar]', 'status resolved to local dirty override', { status });
-        setStatus('Needs sync');
+        setStatus('needs-sync');
         setSyncEnabled(syncReady && !isSyncing);
         showSetupLink(status === 'setup-needed' || status === 'error');
         return;
@@ -274,7 +372,7 @@ function handleSyncStatus(status) {
 
     if (status === 'needs-sync') {
         console.log('[syncbar]', 'status branch', { status });
-        setStatus('Needs sync');
+        setStatus('needs-sync');
         setSyncEnabled(true);
         showSetupLink(false);
         return;
@@ -282,7 +380,7 @@ function handleSyncStatus(status) {
 
     if (status === 'up-to-date') {
         console.log('[syncbar]', 'status branch', { status });
-        setStatus('Up-to-date');
+        setStatus('up-to-date');
         setSyncEnabled(false);
         showSetupLink(false);
         return;
@@ -290,7 +388,7 @@ function handleSyncStatus(status) {
 
     if (status === 'setup-needed') {
         console.log('[syncbar]', 'status branch', { status });
-        setStatus('Setup needed');
+        setStatus('setup-needed');
         setSyncEnabled(false);
         showSetupLink(true);
         return;
@@ -298,14 +396,14 @@ function handleSyncStatus(status) {
 
     if (status === 'error') {
         console.warn('[syncbar]', 'status branch', { status });
-        setStatus('Error');
+        setStatus('error');
         setSyncEnabled(false);
         showSetupLink(true);
         return;
     }
 
     console.warn('[syncbar]', 'status fell through to offline', { status });
-    setStatus('Offline');
+    setStatus('offline');
     setSyncEnabled(false);
     showSetupLink(false);
 }
@@ -314,7 +412,7 @@ function markDirty() {
     localDirty = true;
     reloadAfterCheck = false;
     clearProgress();
-    setStatus('Needs sync');
+    setStatus('needs-sync');
     setSyncEnabled(syncReady && !isSyncing);
     showSetupLink(false);
 }
@@ -410,7 +508,7 @@ function handleSyncClick() {
     isSyncing = true;
     console.log('[syncbar]', 'sync click accepted');
     clearProgress();
-    setStatus('Syncing..');
+    setStatus('syncing');
     setSyncEnabled(false);
     showSetupLink(false);
     sendSyncMessage('sync');
@@ -433,10 +531,17 @@ function sendSyncMessage(type, payload = {}) {
     }, SYNC_ORIGIN);
 }
 
-function setStatus(value) {
-    if (statusNode) {
-        statusNode.textContent = value;
+function setStatus(statusKey, labelOverride) {
+    if (!statusNode || !statusIconNode || !statusTextNode) {
+        return;
     }
+
+    const meta = STATUS_META[statusKey] || { label: labelOverride || statusKey, icon: 'fa-circle-info', tone: 'muted' };
+    const label = labelOverride || meta.label;
+    statusNode.dataset.tone = meta.tone;
+    statusNode.title = label;
+    statusIconNode.replaceChildren(createSyncIcon(meta.icon, meta.spin));
+    statusTextNode.textContent = label;
 }
 
 function setProgress(completed, total) {
@@ -471,4 +576,18 @@ function showSetupLink(visible) {
     if (setupLink) {
         setupLink.hidden = !visible;
     }
+}
+
+function createSyncIcon(iconName, spin = false) {
+    const icon = document.createElement('i');
+    icon.className = 'fa-solid ' + iconName + (spin ? ' fa-spin' : '');
+    icon.setAttribute('aria-hidden', 'true');
+    return icon;
+}
+
+function createSyncLabel(text, className) {
+    const label = document.createElement('span');
+    label.className = className;
+    label.textContent = text;
+    return label;
 }
