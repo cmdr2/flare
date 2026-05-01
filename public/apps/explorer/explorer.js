@@ -13,7 +13,9 @@ const state = {
   createKind: 'file',
   editorPath: '',
   editorDirty: false,
-  selectedEntry: null
+  selectedEntry: null,
+  contentRenderToken: 0,
+  sidebarRenderToken: 0
 };
 
 const formatDate = new Intl.DateTimeFormat(undefined, {
@@ -27,7 +29,6 @@ const elements = {
   addressForm: document.getElementById('address-form'),
   addressInput: document.getElementById('address-input'),
   contentView: document.getElementById('content-view'),
-  folderTitle: document.getElementById('folder-title'),
   selectionSummary: document.getElementById('selection-summary'),
   statusMessage: document.getElementById('status-message'),
   sidebar: document.getElementById('sidebar'),
@@ -53,7 +54,12 @@ const elements = {
   createTarget: document.getElementById('create-target'),
   createError: document.getElementById('create-error'),
   createCancelButton: document.getElementById('create-cancel-button'),
-  createSubmitButton: document.getElementById('create-submit-button')
+  createSubmitButton: document.getElementById('create-submit-button'),
+  alertDialog: document.getElementById('alert-dialog'),
+  alertTitle: document.getElementById('alert-title'),
+  alertMessage: document.getElementById('alert-message'),
+  alertCloseButton: document.getElementById('alert-close-button'),
+  alertConfirmButton: document.getElementById('alert-confirm-button')
 };
 
 bindEvents();
@@ -111,6 +117,8 @@ function bindEvents() {
   elements.createDialog.addEventListener('close', () => {
     elements.createError.textContent = '';
   });
+  elements.alertCloseButton.addEventListener('click', () => closeDialog(elements.alertDialog));
+  elements.alertConfirmButton.addEventListener('click', () => closeDialog(elements.alertDialog));
 }
 
 async function handleAddressSubmit() {
@@ -125,7 +133,7 @@ async function handleAddressSubmit() {
     await navigateTo(parentDir(path), { selectionPath: path, silent: true });
     await openEditor(path);
   } catch (error) {
-    setStatus('Could not open ' + path + ': ' + error.message);
+    showAlert('Invalid address', 'Could not open ' + path + ': ' + error.message);
   }
 }
 
@@ -144,7 +152,6 @@ async function refreshExplorer(message = '') {
       : state.currentEntries.find((entry) => entry.path === state.selectionPath) || null;
 
     elements.addressInput.value = current;
-    elements.folderTitle.textContent = current;
     elements.upButton.disabled = current === '/';
     renderViewButtons();
     await renderSidebarTree();
@@ -157,14 +164,23 @@ async function refreshExplorer(message = '') {
 }
 
 async function renderContent() {
+  const renderToken = ++state.contentRenderToken;
   elements.contentView.dataset.view = state.currentView;
   elements.contentView.replaceChildren();
 
   if (state.currentView === 'tree') {
     const treeRoot = document.createElement('div');
     treeRoot.className = 'tree-group';
-    treeRoot.append(await buildTreeBranch(state.currentFolder, { includeFiles: true, rootLabel: state.currentFolder === '/' ? 'Root' : baseName(state.currentFolder) }));
-    elements.contentView.append(treeRoot);
+    const branch = await buildTreeBranch(state.currentFolder, {
+      includeFiles: true,
+      rootLabel: state.currentFolder === '/' ? 'Root' : baseName(state.currentFolder),
+      behavior: 'content-tree'
+    });
+    if (renderToken !== state.contentRenderToken) {
+      return;
+    }
+    treeRoot.append(branch);
+    elements.contentView.replaceChildren(treeRoot);
     return;
   }
 
@@ -188,8 +204,8 @@ function createEntryButton(entry) {
   button.type = 'button';
   button.dataset.path = entry.path;
   button.className = 'content-item' + (state.selectionPath === entry.path ? ' is-selected' : '');
-  button.addEventListener('click', () => selectPath(entry.path, entry));
-  button.addEventListener('dblclick', () => {
+  button.addEventListener('click', () => {
+    selectPath(entry.path, entry);
     void openEntry(entry);
   });
 
@@ -222,14 +238,19 @@ function createEntryButton(entry) {
 }
 
 async function renderSidebarTree() {
+  const renderToken = ++state.sidebarRenderToken;
   elements.sidebarTree.replaceChildren();
   const rootGroup = document.createElement('div');
   rootGroup.className = 'tree-group';
-  rootGroup.append(await buildTreeBranch('/', { includeFiles: false, rootLabel: 'Root' }));
-  elements.sidebarTree.append(rootGroup);
+  const branch = await buildTreeBranch('/', { includeFiles: false, rootLabel: 'Root', behavior: 'sidebar' });
+  if (renderToken !== state.sidebarRenderToken) {
+    return;
+  }
+  rootGroup.append(branch);
+  elements.sidebarTree.replaceChildren(rootGroup);
 }
 
-async function buildTreeBranch(path, { includeFiles, rootLabel } = {}) {
+async function buildTreeBranch(path, { includeFiles, rootLabel, behavior = 'sidebar' } = {}) {
   const entry = path === '/'
     ? { name: rootLabel || 'Root', path, type: 'directory', childLabel: '' }
     : await describePath(path);
@@ -274,12 +295,26 @@ async function buildTreeBranch(path, { includeFiles, rootLabel } = {}) {
   node.type = 'button';
   node.dataset.path = path;
   node.className = 'tree-node' + (state.selectionPath === path || state.currentFolder === path ? ' is-active' : '');
-  node.addEventListener('click', () => {
-    selectPath(path, entry);
-  });
-  node.addEventListener('dblclick', () => {
-    void openEntry(entry);
-  });
+  if (behavior === 'content-tree' && entry.type === 'directory') {
+    node.addEventListener('click', (event) => {
+      if (event.detail > 1) {
+        return;
+      }
+
+        selectPath(path, entry);
+        toggleExpandedFolder(path);
+        void rerenderTreeViews();
+    });
+    node.addEventListener('dblclick', () => {
+      selectPath(path, entry);
+      void navigateTo(path);
+    });
+  } else {
+    node.addEventListener('click', () => {
+      selectPath(path, entry);
+      void openEntry(entry);
+    });
+  }
 
   const icon = createIcon(entry.type);
   const textWrap = document.createElement('span');
@@ -310,7 +345,7 @@ async function buildTreeBranch(path, { includeFiles, rootLabel } = {}) {
         if (!includeFiles && child.type !== 'directory') {
           continue;
         }
-        childrenWrap.append(await buildTreeBranch(child.path, { includeFiles }));
+        childrenWrap.append(await buildTreeBranch(child.path, { includeFiles, behavior }));
       }
       group.append(childrenWrap);
     }
@@ -324,6 +359,15 @@ async function rerenderTreeViews() {
   if (state.currentView === 'tree') {
     await renderContent();
   }
+}
+
+function toggleExpandedFolder(path) {
+  if (state.expandedFolders.has(path)) {
+    state.expandedFolders.delete(path);
+    return;
+  }
+
+  state.expandedFolders.add(path);
 }
 
 function selectPath(path, entry = null) {
@@ -499,6 +543,12 @@ function closeDialog(dialog) {
   if (dialog.open) {
     dialog.close();
   }
+}
+
+function showAlert(title, message) {
+  elements.alertTitle.textContent = title;
+  elements.alertMessage.textContent = message;
+  openDialog(elements.alertDialog);
 }
 
 async function ensureDirectory(path) {

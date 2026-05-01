@@ -14,6 +14,8 @@ let syncFrame = null;
 let syncReady = false;
 let syncButton = null;
 let statusNode = null;
+let progressNode = null;
+let progressCountNode = null;
 let setupLink = null;
 let syncRequestCounter = 0;
 let iframeTimeout = null;
@@ -63,6 +65,40 @@ function mountSyncBar() {
       min-width: 88px;
     }
 
+        .flare-sync-progress {
+            --progress-ratio: 0;
+            position: relative;
+            display: inline-grid;
+            place-items: center;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: conic-gradient(#dcb06a calc(var(--progress-ratio) * 1turn), rgba(255, 255, 255, 0.18) 0);
+            flex: none;
+        }
+
+        .flare-sync-progress[hidden] {
+            display: none;
+        }
+
+        .flare-sync-progress::before {
+            content: '';
+            position: absolute;
+            inset: 4px;
+            border-radius: 50%;
+            background: rgba(22, 24, 29, 0.96);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+        }
+
+        .flare-sync-progress-count {
+            position: relative;
+            z-index: 1;
+            font: 10px/1.05 'Segoe UI', system-ui, sans-serif;
+            color: #f5efe6;
+            text-align: center;
+            white-space: pre;
+        }
+
     .flare-sync-link {
       color: #f3c992;
     }
@@ -83,13 +119,21 @@ function mountSyncBar() {
     statusNode.className = 'flare-sync-status';
     statusNode.textContent = 'Connecting..';
 
+    progressNode = document.createElement('span');
+    progressNode.className = 'flare-sync-progress';
+    progressNode.hidden = true;
+
+    progressCountNode = document.createElement('span');
+    progressCountNode.className = 'flare-sync-progress-count';
+    progressNode.append(progressCountNode);
+
     setupLink = document.createElement('a');
     setupLink.className = 'flare-sync-link';
     setupLink.href = '/public/apps/sync/';
     setupLink.textContent = 'Open setup';
     setupLink.hidden = true;
 
-    bar.append(syncButton, statusNode, setupLink);
+    bar.append(syncButton, statusNode, progressNode, setupLink);
     document.body.prepend(bar);
 }
 
@@ -135,6 +179,7 @@ function handleMessage(event) {
     if (event.data.type === 'sync-ready') {
         syncReady = true;
         clearTimeout(iframeTimeout);
+        clearProgress();
         setStatus('Checking..');
         sendSyncMessage('check');
         return;
@@ -146,7 +191,7 @@ function handleMessage(event) {
     }
 
     if (event.data.type === 'sync-progress') {
-        setStatus(event.data.payload?.message || 'Syncing..');
+        handleSyncProgress(event.data.payload || {});
         return;
     }
 
@@ -158,6 +203,7 @@ function handleMessage(event) {
             requestId: event.data.requestId,
             payload: event.data.payload
         });
+        clearProgress();
         setStatus('Checking..');
         sendSyncMessage('check');
         return;
@@ -170,14 +216,40 @@ function handleMessage(event) {
             requestId: event.data.requestId,
             payload: event.data.payload
         });
+        clearProgress();
         setStatus('Failed to sync');
         showSetupLink(event.data.payload?.code === 'setup-needed');
         setSyncEnabled(true);
     }
 }
 
+function handleSyncProgress(payload) {
+    const phase = payload.phase;
+
+    if (phase === 'upload' || phase === 'download') {
+        setStatus(phase === 'upload' ? 'Uploading' : 'Downloading');
+        setProgress(payload.completed ?? 0, payload.total ?? 0);
+        return;
+    }
+
+    clearProgress();
+
+    if (phase === 'local-delete' || phase === 'remote-delete') {
+        setStatus('Removing');
+        return;
+    }
+
+    if (phase === 'noop') {
+        setStatus('Up-to-date');
+        return;
+    }
+
+    setStatus(payload.message || 'Syncing..');
+}
+
 function handleSyncStatus(status) {
     isSyncing = false;
+    clearProgress();
 
     if (reloadAfterCheck) {
         reloadAfterCheck = false;
@@ -239,6 +311,7 @@ function handleSyncStatus(status) {
 function markDirty() {
     localDirty = true;
     reloadAfterCheck = false;
+    clearProgress();
     setStatus('Needs sync');
     setSyncEnabled(syncReady && !isSyncing);
     showSetupLink(false);
@@ -334,6 +407,7 @@ function handleSyncClick() {
 
     isSyncing = true;
     console.log('[syncbar]', 'sync click accepted');
+    clearProgress();
     setStatus('Syncing..');
     setSyncEnabled(false);
     showSetupLink(false);
@@ -361,6 +435,28 @@ function setStatus(value) {
     if (statusNode) {
         statusNode.textContent = value;
     }
+}
+
+function setProgress(completed, total) {
+    if (!progressNode || !progressCountNode || !total) {
+        clearProgress();
+        return;
+    }
+
+    const safeCompleted = Math.min(Math.max(completed, 0), total);
+    progressNode.hidden = false;
+    progressNode.style.setProperty('--progress-ratio', String(safeCompleted / total));
+    progressCountNode.textContent = safeCompleted + '/' + total;
+}
+
+function clearProgress() {
+    if (!progressNode || !progressCountNode) {
+        return;
+    }
+
+    progressNode.hidden = true;
+    progressNode.style.setProperty('--progress-ratio', '0');
+    progressCountNode.textContent = '';
 }
 
 function setSyncEnabled(enabled) {

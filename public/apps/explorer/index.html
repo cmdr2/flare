@@ -14,23 +14,18 @@
 
   <div class="explorer-app">
     <header class="app-toolbar" aria-label="Explorer toolbar">
-      <div class="toolbar-group toolbar-group--leading">
-        <button id="sidebar-toggle" class="toolbar-button toolbar-button--ghost" type="button" aria-expanded="false" aria-controls="sidebar">Folders</button>
-        <button id="up-button" class="toolbar-button toolbar-button--ghost" type="button">Up</button>
-      </div>
-
       <form id="address-form" class="address-form" autocomplete="off">
         <label class="sr-only" for="address-input">Folder path</label>
-        <div class="address-shell">
-          <span class="address-prefix" aria-hidden="true"></span>
-          <input id="address-input" class="address-input" type="text" spellcheck="false" placeholder="/">
+        <div class="address-row">
+          <button id="sidebar-toggle" class="toolbar-button toolbar-button--ghost sidebar-toggle-inline" type="button" aria-expanded="false" aria-controls="sidebar" aria-label="Toggle folders">
+            <span class="sidebar-toggle-icon" aria-hidden="true"></span>
+          </button>
+          <div class="address-shell">
+            <span class="address-prefix" aria-hidden="true"></span>
+            <input id="address-input" class="address-input" type="text" spellcheck="false" placeholder="/">
+          </div>
         </div>
       </form>
-
-      <div class="toolbar-group toolbar-group--actions">
-        <button id="new-file-button" class="toolbar-button" type="button">New file</button>
-        <button id="new-folder-button" class="toolbar-button toolbar-button--ghost" type="button">New folder</button>
-      </div>
     </header>
 
     <div class="explorer-shell">
@@ -46,9 +41,10 @@
 
       <section class="content-shell" aria-label="File browser">
         <div class="content-header">
-          <div>
-            <p class="content-label">Current folder</p>
-            <h1 id="folder-title">/</h1>
+          <div class="toolbar-group content-actions">
+            <button id="up-button" class="toolbar-button toolbar-button--ghost" type="button">Up</button>
+            <button id="new-file-button" class="toolbar-button" type="button">New file</button>
+            <button id="new-folder-button" class="toolbar-button toolbar-button--ghost" type="button">New folder</button>
           </div>
 
           <div class="view-switcher" role="tablist" aria-label="View mode">
@@ -75,7 +71,7 @@
           <p class="modal-label">Text editor</p>
           <h2 id="editor-title">Open file</h2>
         </div>
-        <button id="editor-close-button" class="toolbar-button toolbar-button--ghost" type="button">Close</button>
+        <button id="editor-close-button" class="toolbar-button toolbar-button--ghost modal-close-button" type="button" aria-label="Close editor">X</button>
       </header>
 
       <textarea id="editor-textarea" class="editor-textarea" spellcheck="false" placeholder="File contents"></textarea>
@@ -108,6 +104,25 @@
       <footer class="modal-actions">
         <span></span>
         <button id="create-submit-button" class="toolbar-button" type="submit">Create</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="alert-dialog" class="modal">
+    <form method="dialog" class="modal-card modal-card--compact">
+      <header class="modal-header">
+        <div>
+          <p class="modal-label">Explorer</p>
+          <h2 id="alert-title">Invalid address</h2>
+        </div>
+        <button id="alert-close-button" class="toolbar-button toolbar-button--ghost modal-close-button" type="submit" aria-label="Close message">X</button>
+      </header>
+
+      <p id="alert-message" class="helper-text"></p>
+
+      <footer class="modal-actions">
+        <span></span>
+        <button id="alert-confirm-button" class="toolbar-button" type="submit">OK</button>
       </footer>
     </form>
   </dialog>

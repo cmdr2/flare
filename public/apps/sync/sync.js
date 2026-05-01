@@ -307,7 +307,7 @@ async function runSyncTasks(tasks, remoteStorage, local, remote, requestId, onPr
     }
 
     if (uploadFiles.length > 0) {
-        onProgress?.({ phase: 'upload', message: 'Uploading ' + uploadFiles.length + ' file(s)..', requestId });
+        onProgress?.({ phase: 'upload', message: 'Uploading ' + uploadFiles.length + ' file(s)..', requestId, completed: 0, total: uploadFiles.length });
         logSyncEntries('upload', uploadFiles, local, remote, requestId, onProgress);
         await remoteStorage.upload(uploadFiles);
     } else {
@@ -315,7 +315,7 @@ async function runSyncTasks(tasks, remoteStorage, local, remote, requestId, onPr
     }
 
     if (downloadFiles.length > 0) {
-        onProgress?.({ phase: 'download', message: 'Downloading ' + downloadFiles.length + ' file(s)..', requestId });
+        onProgress?.({ phase: 'download', message: 'Downloading ' + downloadFiles.length + ' file(s)..', requestId, completed: 0, total: downloadFiles.length });
         logSyncEntries('download', downloadFiles, local, remote, requestId, onProgress);
         await remoteStorage.download(downloadFiles);
     } else {
@@ -340,7 +340,7 @@ async function runSyncTasks(tasks, remoteStorage, local, remote, requestId, onPr
 }
 
 function logSyncEntries(phase, paths, local, remote, requestId, onProgress) {
-    for (const path of paths) {
+    for (const [index, path] of paths.entries()) {
         const localHash = local[path] || '(missing)';
         const remoteHash = remote[path] || '(missing)';
         const message = [
@@ -350,7 +350,17 @@ function logSyncEntries(phase, paths, local, remote, requestId, onProgress) {
         ].join('\n');
 
         console.log('[sync]', message);
-        onProgress?.({ phase, message, requestId, append: true, path, localHash, remoteHash });
+        onProgress?.({
+            phase,
+            message,
+            requestId,
+            append: true,
+            path,
+            localHash,
+            remoteHash,
+            completed: index + 1,
+            total: paths.length
+        });
     }
 }
 
