@@ -16,9 +16,8 @@ const EMPTY_TITLE = 'Untitled';
 const FILE_EXTENSION = '.txt';
 const STATE_VERSION = 1;
 const MOBILE_BREAKPOINT_PX = 720;
-const MOBILE_EDGE_SWIPE_PX = 28;
-const MOBILE_OPEN_SWIPE_DISTANCE_PX = 54;
-const MOBILE_CLOSE_SWIPE_DISTANCE_PX = 42;
+const MOBILE_OPEN_SWIPE_DISTANCE_PX = 180;
+const MOBILE_CLOSE_SWIPE_DISTANCE_PX = 50;
 const MOBILE_SWIPE_MAX_VERTICAL_DRIFT_PX = 28;
 const MOBILE_SWIPE_LOCK_PX = 10;
 const MOBILE_LONG_PRESS_MS = 320;
@@ -65,9 +64,9 @@ ui.syntaxSelect.addEventListener('change', () => {
 
 document.addEventListener('keydown', handleDocumentKeydown, true);
 window.addEventListener('resize', syncLayoutOffset);
-document.addEventListener('pointermove', handleGlobalPointerMove, { passive: false });
-document.addEventListener('pointerup', handleGlobalPointerUp, { passive: false });
-document.addEventListener('pointercancel', handleGlobalPointerCancel, { passive: false });
+document.addEventListener('pointermove', handleGlobalPointerMove, { capture: true, passive: false });
+document.addEventListener('pointerup', handleGlobalPointerUp, { capture: true, passive: false });
+document.addEventListener('pointercancel', handleGlobalPointerCancel, { capture: true, passive: false });
 window.addEventListener('pagehide', () => {
   void flushPendingSave({ silent: true });
 });
@@ -388,7 +387,7 @@ function bindPointerDropTargets(container) {
 }
 
 function bindMobileSidebarGestures() {
-  document.addEventListener('pointerdown', handleSidebarPointerDown, { passive: true });
+  document.addEventListener('pointerdown', handleSidebarPointerDown, { capture: true, passive: true });
 }
 
 function handleSidebarPointerDown(event) {
@@ -397,10 +396,6 @@ function handleSidebarPointerDown(event) {
   }
 
   if (!isSidebarOpen) {
-    if (event.clientX > MOBILE_EDGE_SWIPE_PX || !isEditorSwipeRegion(event.target)) {
-      return;
-    }
-
     sidebarSwipeState = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -630,14 +625,6 @@ function cancelMobileDrag(pointerId) {
 
 function isMobileViewport() {
   return window.matchMedia('(max-width: ' + MOBILE_BREAKPOINT_PX + 'px)').matches;
-}
-
-function isEditorSwipeRegion(target) {
-  if (!(target instanceof Element)) {
-    return false;
-  }
-
-  return Boolean(target.closest('.editor-shell, .editor-host, .cm-editor, .cm-scroller, .cm-content'));
 }
 
 async function reorderTabs(movingId, targetId, insertAfter) {
