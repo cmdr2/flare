@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v0.4.0';
+const CACHE_VERSION = 'v0.5.0';
 const CACHE_NAME = 'flare-shell-' + CACHE_VERSION;
 const APP_SHELLS = {
     '/public/apps/explorer/': '/public/apps/explorer/index.html',
