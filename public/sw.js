@@ -1,10 +1,12 @@
-const CACHE_VERSION = 'v0.2.0';
+const CACHE_VERSION = 'v0.3.0';
 const CACHE_NAME = 'flare-shell-' + CACHE_VERSION;
 const APP_SHELLS = {
     '/public/apps/explorer/': '/public/apps/explorer/index.html',
     '/public/apps/explorer/index.html': '/public/apps/explorer/index.html',
     '/public/apps/app2/': '/public/apps/app2/index.html',
     '/public/apps/app2/index.html': '/public/apps/app2/index.html',
+    '/public/apps/urnal/': '/public/apps/urnal/index.html',
+    '/public/apps/urnal/index.html': '/public/apps/urnal/index.html',
     '/public/apps/carbon/': '/public/apps/carbon/index.html',
     '/public/apps/carbon/index.html': '/public/apps/carbon/index.html',
     '/public/apps/sync/': '/public/apps/sync/index.html',
@@ -21,6 +23,10 @@ const PRECACHE_URLS = [
     '/public/apps/app2/index.html',
     '/public/apps/app2/manifest.webmanifest',
     '/public/apps/app2/icon.svg',
+    '/public/apps/urnal/',
+    '/public/apps/urnal/index.html',
+    '/public/apps/urnal/manifest.webmanifest',
+    '/public/apps/urnal/icon.svg',
     '/public/apps/carbon/',
     '/public/apps/carbon/index.html',
     '/public/apps/carbon/manifest.webmanifest',
