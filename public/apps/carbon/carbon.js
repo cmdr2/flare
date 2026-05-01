@@ -662,7 +662,9 @@ function mountEditorForActiveTab() {
       scheduleAutosave(tab.id);
     }
   });
-  editorSession.focus();
+  if (!isMobileViewport()) {
+    editorSession.focus();
+  }
   updateSyntaxControl();
 }
 
