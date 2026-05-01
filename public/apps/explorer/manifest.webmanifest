@@ -1,6 +1,7 @@
 {
     "name": "Flare Explorer",
     "short_name": "Explorer",
+    "version": "0.3.0",
     "description": "Browse the shared Flare filesystem with large icons, lists, and tree views.",
     "start_url": "/public/apps/explorer/",
     "scope": "/public/apps/explorer/",

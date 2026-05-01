@@ -52,8 +52,8 @@ button {
 }
 
 .explorer-app {
-  height: 100dvh;
-  min-height: 100dvh;
+  height: var(--viewport-height, 100dvh);
+  min-height: var(--viewport-height, 100dvh);
   padding: calc(var(--syncbar-offset) + 8px) 8px 8px;
   display: grid;
   grid-template-rows: auto 1fr auto;
@@ -108,10 +108,10 @@ button {
 }
 
 .toolbar-divider {
-  width: 1px;
-  height: 24px;
-  margin: 0 8px;
-  background: rgba(194, 205, 221, 0.95);
+  width: 8px;
+  height: auto;
+  margin: 0 4px;
+  background: transparent;
   flex: none;
 }
 
@@ -261,7 +261,8 @@ button {
   overflow: auto;
   padding: 8px;
   display: grid;
-  align-content: start;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  align-content: stretch;
   gap: 10px;
 }
 
@@ -320,14 +321,26 @@ button {
 }
 
 .favorites-dropzone {
+  min-height: 100%;
+  padding: 0;
+  border-radius: 0;
+  border: 0;
+  background: transparent;
+  align-content: start;
+}
+
+.favorites-panel {
   min-height: 104px;
   padding: 8px;
+  height: 100%;
   border-radius: 12px;
   border: 1px dashed var(--border-strong);
   background: rgba(255, 255, 255, 0.54);
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: stretch;
 }
 
-.favorites-dropzone.is-dragover {
+.favorites-panel.is-dragover {
   border-color: rgba(15, 108, 189, 0.38);
   background: rgba(15, 108, 189, 0.08);
 }
@@ -387,7 +400,7 @@ button {
 .tree-node.is-drop-target,
 .sidebar-link.is-drop-target,
 .favorite-link.is-drop-target,
-.favorites-dropzone.is-drop-target {
+.favorites-panel.is-drop-target {
   background: rgba(15, 108, 189, 0.1);
   border-color: rgba(15, 108, 189, 0.32);
 }
@@ -503,6 +516,26 @@ button {
   gap: 4px;
 }
 
+.content-actions {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.view-switcher {
+  margin-left: auto;
+  flex: none;
+}
+
+.content-actions-primary,
+.content-actions-secondary,
+.view-switcher {
+  flex-wrap: nowrap;
+}
+
+#clear-selection-button {
+  flex: none;
+}
+
 .content-view {
   padding: 8px;
 }
@@ -558,6 +591,7 @@ button {
   line-height: 1.3;
   display: -webkit-box;
   -webkit-box-orient: vertical;
+  line-clamp: 2;
   -webkit-line-clamp: 2;
 }
 
@@ -711,6 +745,23 @@ button {
   min-height: 0;
 }
 
+#selection-summary,
+#status-message {
+  min-width: 0;
+}
+
+#selection-summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#status-message {
+  margin-left: auto;
+  text-align: right;
+  white-space: nowrap;
+}
+
 .modal {
   border: 0;
   padding: 0;
@@ -735,10 +786,10 @@ button {
   top: 0;
   left: 0;
   z-index: 1300;
-  min-width: 220px;
-  max-width: min(calc(100vw - 16px), 280px);
-  padding: 6px;
-  border-radius: 14px;
+  min-width: 176px;
+  max-width: min(calc(100vw - 16px), 240px);
+  padding: 4px;
+  border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.74);
   background: var(--surface-strong);
   box-shadow: var(--shadow);
@@ -750,15 +801,16 @@ button {
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  padding: 8px 10px;
+  padding: 6px 8px;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: 8px;
   background: transparent;
   color: inherit;
   text-align: left;
   cursor: pointer;
+  font-size: 0.86rem;
 }
 
 .action-menu-button:hover {
@@ -791,9 +843,16 @@ button {
 
 .modal-card--editor {
   width: min(1100px, calc(100vw - 16px));
-  height: min(calc(100dvh - 16px), 920px);
-  max-height: calc(100dvh - 16px);
+  height: min(calc(var(--viewport-height, 100dvh) - 16px), 920px);
+  max-height: calc(var(--viewport-height, 100dvh) - 16px);
   grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.modal-card--editor .modal-actions {
+  position: sticky;
+  bottom: 0;
+  padding-top: 8px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.92) 26%);
 }
 
 .modal-card--compact {
@@ -808,6 +867,21 @@ button {
   background: rgba(246, 250, 255, 0.95);
   border: 1px solid var(--border);
   resize: none;
+}
+
+.drop-tooltip {
+  position: fixed;
+  z-index: 1350;
+  pointer-events: none;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(23, 33, 46, 0.92);
+  color: #fff;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
+  transform: translate(-50%, calc(-100% - 10px));
+  white-space: nowrap;
 }
 
 .modal-close-button {
@@ -895,8 +969,8 @@ button {
 
 @media (max-width: 640px) {
   .explorer-app {
-    height: 100dvh;
-    min-height: 100dvh;
+    height: var(--viewport-height, 100dvh);
+    min-height: var(--viewport-height, 100dvh);
     padding: calc(var(--syncbar-offset) + 6px) 6px 6px;
     gap: 6px;
   }
@@ -938,12 +1012,15 @@ button {
   }
 
   .content-header {
-    align-items: flex-start;
+    align-items: center;
     padding: 8px 10px 6px;
+    gap: 8px;
+    flex-wrap: nowrap;
   }
 
   .content-actions {
-    width: 100%;
+    width: auto;
+    overflow: hidden;
   }
 
   .content-actions-secondary {
@@ -955,7 +1032,7 @@ button {
   }
 
   .content-actions-divider {
-    margin: 0 6px;
+    margin: 0 2px;
   }
 
   .content-view,
@@ -1014,14 +1091,14 @@ button {
   .modal-card--editor,
   .modal-card--compact {
     width: calc(100vw - 12px);
-    max-height: calc(100dvh - 12px);
+    max-height: calc(var(--viewport-height, 100dvh) - 12px);
     padding: 10px;
     border-radius: 14px;
     gap: 8px;
   }
 
   .modal-card--editor {
-    height: calc(100dvh - 12px);
+    height: calc(var(--viewport-height, 100dvh) - 12px);
   }
 
   .modal-header,
@@ -1033,5 +1110,10 @@ button {
   .editor-textarea {
     padding: 10px;
     border-radius: 10px;
+  }
+
+  .status-bar {
+    gap: 8px;
+    flex-wrap: nowrap;
   }
 }

@@ -5,6 +5,8 @@ registerPwa('explorer');
 
 const EXPLORER_CONFIG_DIR = '/home/.explorer';
 const EXPLORER_CONFIG_PATH = EXPLORER_CONFIG_DIR + '/config.json';
+const EXPLORER_MANIFEST_PATH = '/public/apps/explorer/manifest.webmanifest';
+const EXPLORER_FALLBACK_VERSION = '0.3.0';
 const SIDEBAR_PLACES = [
   { label: 'Root', path: '/', icon: 'fa-hard-drive' },
   { label: 'Home', path: '/home', icon: 'fa-house' },
@@ -15,9 +17,13 @@ const SIDEBAR_PLACES = [
 
 const state = {
   currentFolder: '/',
+  currentFolderEntry: null,
   currentView: loadStoredView(),
   currentEntries: [],
+  lastTouchTreeTapPath: '',
+  lastTouchTreeTapAt: 0,
   favorites: [],
+  appVersion: EXPLORER_FALLBACK_VERSION,
   pathTypes: new Map(),
   clipboardMode: '',
   clipboardPaths: [],
@@ -39,7 +45,12 @@ const state = {
 };
 
 const MOBILE_LONG_PRESS_MS = 420;
+const MOBILE_DOUBLE_TAP_MS = 360;
 let longPressState = null;
+const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
+  dateStyle: 'medium',
+  timeStyle: 'short'
+});
 
 const FILE_ICON_NAMES = {
   default: 'fa-file',
@@ -212,6 +223,7 @@ const elements = {
   sidebar: document.getElementById('sidebar'),
   sidebarBackdrop: document.getElementById('sidebar-backdrop'),
   sidebarPlaces: document.getElementById('sidebar-places'),
+  favoritesPanel: document.querySelector('.favorites-panel'),
   sidebarFavorites: document.getElementById('sidebar-favorites'),
   favoritesDropzone: document.getElementById('favorites-dropzone'),
   sidebarToggle: document.getElementById('sidebar-toggle'),
@@ -240,11 +252,14 @@ const elements = {
   alertMessage: document.getElementById('alert-message'),
   alertCloseButton: document.getElementById('alert-close-button'),
   alertConfirmButton: document.getElementById('alert-confirm-button'),
-  actionMenu: document.getElementById('action-menu')
+  actionMenu: document.getElementById('action-menu'),
+  dropTooltip: document.getElementById('drop-tooltip')
 };
 
+syncViewportHeight();
 bindEvents();
-await refreshExplorer('Explorer ready');
+await loadAppVersion();
+await refreshExplorer();
 
 function bindEvents() {
   elements.addressForm.addEventListener('submit', (event) => {
@@ -300,8 +315,18 @@ function bindEvents() {
 
   window.addEventListener('pointerdown', handleGlobalPointerDown, true);
   window.addEventListener('keydown', handleGlobalKeyDown);
-  window.addEventListener('resize', closeActionMenu);
-  window.addEventListener('blur', closeActionMenu);
+  window.addEventListener('resize', () => {
+    syncViewportHeight();
+    closeActionMenu();
+  });
+  window.addEventListener('blur', () => {
+    closeActionMenu();
+    hideDropTooltip();
+  });
+  window.addEventListener('dragend', hideDropTooltip);
+  window.addEventListener('drop', hideDropTooltip);
+  window.visualViewport?.addEventListener('resize', syncViewportHeight);
+  window.visualViewport?.addEventListener('scroll', syncViewportHeight);
 
   elements.editorSaveButton.addEventListener('click', () => {
     void saveEditor();
@@ -351,7 +376,9 @@ async function refreshExplorer(message = '') {
   try {
     closeActionMenu();
     const current = await ensureDirectory(state.currentFolder);
+    const currentEntry = await describePath(current);
     state.currentFolder = current;
+    state.currentFolderEntry = currentEntry;
     expandAncestors(current);
     state.currentEntries = await readDirectory(current);
     state.pathTypes = new Map([[current, 'directory']]);
@@ -510,12 +537,7 @@ async function buildTreeBranch(path, { includeFiles, rootLabel, behavior = 'side
   node.setAttribute('aria-pressed', String(state.selectedPaths.has(path)));
   updateKnownPathType(path, entry.type);
   bindEntryInteractions(node, entry, {
-    onDesktopSelect() {
-      if (behavior === 'content-tree' && entry.type === 'directory') {
-        toggleExpandedFolder(path);
-        void rerenderTreeViews();
-      }
-    }
+    mobileTreeTapMode: behavior === 'content-tree' && entry.type === 'directory' ? 'toggle' : 'open'
   });
 
   const icon = createEntryIcon(entry, {
@@ -634,7 +656,7 @@ function renderViewButtons() {
 function updateSelectionSummary() {
   const selectedCount = state.selectedPaths.size;
   if (selectedCount === 0) {
-    elements.selectionSummary.textContent = 'Viewing ' + state.currentFolder;
+    elements.selectionSummary.textContent = formatFolderMetadata(state.currentFolderEntry);
     return;
   }
 
@@ -651,14 +673,12 @@ function updateSelectionSummary() {
 
   const selected = state.currentEntries.find((entry) => entry.path === selectedPath);
   if (selected) {
-    elements.selectionSummary.textContent = selected.type === 'directory'
-      ? selected.name + ' • Folder'
-      : selected.name + ' • ' + formatSize(selected.size);
+    elements.selectionSummary.textContent = formatEntryMetadata(selected);
     return;
   }
 
   if (isDirectoryPath(selectedPath)) {
-    elements.selectionSummary.textContent = baseName(selectedPath) + ' • Folder';
+    elements.selectionSummary.textContent = 'Folder selected';
     return;
   }
 
@@ -666,11 +686,11 @@ function updateSelectionSummary() {
 }
 
 function setStatus(message) {
-  elements.statusMessage.textContent = message;
+  elements.statusMessage.textContent = 'Explorer v' + state.appVersion;
 }
 
 function describeFolderState() {
-  return state.currentEntries.length === 0 ? 'Empty folder' : 'Viewing ' + state.currentFolder;
+  return state.currentEntries.length === 0 ? 'Empty folder' : '';
 }
 
 async function openEditor(path) {
@@ -1020,6 +1040,24 @@ function formatSize(bytes) {
   return (value >= 10 || unitIndex === 0 ? value.toFixed(0) : value.toFixed(1)) + ' ' + units[unitIndex];
 }
 
+function formatDateTime(value) {
+  return Number.isFinite(value) ? dateTimeFormatter.format(new Date(value)) : 'Date unavailable';
+}
+
+function formatEntryMetadata(entry) {
+  if (!entry) {
+    return 'No selection';
+  }
+  if (entry.type === 'directory') {
+    return 'Updated ' + formatDateTime(entry.mtimeMs);
+  }
+  return formatSize(entry.size) + ' • ' + formatDateTime(entry.mtimeMs);
+}
+
+function formatFolderMetadata(entry) {
+  return entry ? 'Updated ' + formatDateTime(entry.mtimeMs) : 'No selection';
+}
+
 function validateItemName(name) {
   if (!name) {
     return 'Enter a name.';
@@ -1130,7 +1168,9 @@ async function transferPaths(paths, destinationPath, mode, { fromClipboard = fal
       throw new Error('Cannot place a folder into itself.');
     }
 
-    const targetPath = joinPath(destinationFolder, baseName(sourcePath));
+    const targetPath = mode === 'copy' && parentDir(sourcePath) === destinationFolder
+      ? await getAvailableCopyPath(sourcePath, destinationFolder)
+      : joinPath(destinationFolder, baseName(sourcePath));
     if (mode === 'move' && parentDir(sourcePath) === destinationFolder) {
       continue;
     }
@@ -1200,6 +1240,21 @@ async function copyPath(sourcePath, targetPath) {
   const children = await fs.promises.readdir(source);
   for (const child of children) {
     await copyPath(joinPath(source, child), joinPath(target, child));
+  }
+}
+
+async function getAvailableCopyPath(sourcePath, destinationFolder) {
+  const sourceName = baseName(sourcePath);
+  let attempt = 0;
+  while (true) {
+    const candidateName = attempt === 0
+      ? 'Copy of ' + sourceName
+      : 'Copy ' + (attempt + 1) + ' of ' + sourceName;
+    const candidatePath = joinPath(destinationFolder, candidateName);
+    if (!(await pathExists(candidatePath))) {
+      return candidatePath;
+    }
+    attempt += 1;
   }
 }
 
@@ -1313,10 +1368,10 @@ function isSamePathOrAncestor(parentPath, childPath) {
   return child === parent || child.startsWith(parent === '/' ? '/' : parent + '/');
 }
 
-function bindEntryInteractions(node, entry, { onDesktopSelect } = {}) {
+function bindEntryInteractions(node, entry, { mobileTreeTapMode = 'open' } = {}) {
   node.addEventListener('click', (event) => {
     if (isTouchClick(event)) {
-      handleMobileEntryClick(event, entry);
+      handleMobileEntryClick(event, entry, { treeTapMode: mobileTreeTapMode });
       return;
     }
 
@@ -1326,7 +1381,6 @@ function bindEntryInteractions(node, entry, { onDesktopSelect } = {}) {
     }
 
     handleDesktopEntryClick(event, entry);
-    onDesktopSelect?.();
   });
 
   node.addEventListener('dblclick', (event) => {
@@ -1382,6 +1436,7 @@ function bindEntryInteractions(node, entry, { onDesktopSelect } = {}) {
 }
 
 function handleDesktopEntryClick(event, entry) {
+  clearLastTouchTreeTap();
   if (event.ctrlKey || event.metaKey) {
     toggleSelection(entry.path);
     return;
@@ -1390,11 +1445,30 @@ function handleDesktopEntryClick(event, entry) {
   selectPath(entry.path);
 }
 
-function handleMobileEntryClick(event, entry) {
+function handleMobileEntryClick(event, entry, { treeTapMode = 'open' } = {}) {
   if (consumeSuppressedClick(entry.path)) {
     event.preventDefault();
     return;
   }
+
+  if (treeTapMode === 'toggle' && entry.type === 'directory') {
+    const now = Date.now();
+    const isDoubleTap = state.lastTouchTreeTapPath === entry.path && now - state.lastTouchTreeTapAt <= MOBILE_DOUBLE_TAP_MS;
+    if (isDoubleTap) {
+      clearLastTouchTreeTap();
+      void openEntry(entry);
+      return;
+    }
+
+    state.lastTouchTreeTapPath = entry.path;
+    state.lastTouchTreeTapAt = now;
+    selectPath(entry.path);
+    toggleExpandedFolder(entry.path);
+    void rerenderTreeViews();
+    return;
+  }
+
+  clearLastTouchTreeTap();
 
   if (state.selectedPaths.size > 0) {
     toggleSelection(entry.path);
@@ -1402,6 +1476,11 @@ function handleMobileEntryClick(event, entry) {
   }
 
   void openEntry(entry);
+}
+
+function clearLastTouchTreeTap() {
+  state.lastTouchTreeTapPath = '';
+  state.lastTouchTreeTapAt = 0;
 }
 
 function toggleSelection(path) {
@@ -1446,7 +1525,8 @@ function renderSelectionAction() {
   const pinLabel = canPin ? (isPinnedFolder ? 'Pinned: ' + baseName(selectedPath) : 'Pin ' + baseName(selectedPath)) : 'Pin selected folder';
   const unpinLabel = canPin ? 'Unpin ' + baseName(selectedPath) : 'Unpin selected folder';
   const pasteLabel = hasClipboard ? 'Paste into ' + state.currentFolder : 'Paste into current folder';
-  const showActionSurface = canCutCopy || hasClipboard || canRename || canPin || selectedCount > 0;
+  const showClearSelection = selectedCount > 0;
+  const showSecondarySurface = canCutCopy || hasClipboard || canRename || canPin || selectedCount > 0;
   setActionVisibility(elements.cutSelectionButton, canCutCopy);
   setActionVisibility(elements.copySelectionButton, canCutCopy);
   setActionVisibility(elements.pasteClipboardButton, canCutCopy || hasClipboard);
@@ -1454,7 +1534,7 @@ function renderSelectionAction() {
   setActionVisibility(elements.pinSelectionButton, canPin);
   setActionVisibility(elements.unpinSelectionButton, canPin && isPinnedFolder);
   setActionVisibility(elements.deleteSelectionButton, selectedCount > 0);
-  setActionVisibility(elements.clearSelectionButton, selectedCount > 0);
+  setActionVisibility(elements.clearSelectionButton, showClearSelection);
   elements.pasteClipboardButton.disabled = !hasClipboard;
   elements.pasteClipboardButton.setAttribute('aria-label', pasteLabel);
   elements.pasteClipboardButton.title = pasteLabel;
@@ -1471,9 +1551,9 @@ function renderSelectionAction() {
   elements.clearSelectionButton.title = label;
   elements.deleteSelectionButton.setAttribute('aria-label', deleteLabel);
   elements.deleteSelectionButton.title = deleteLabel;
-  elements.contentActionsDivider.hidden = !showActionSurface;
-  elements.contentActionsSecondary.hidden = !showActionSurface;
-  elements.operationsMenuButton.hidden = !showActionSurface;
+  elements.contentActionsDivider.hidden = !(showClearSelection || showSecondarySurface);
+  elements.contentActionsSecondary.hidden = !showSecondarySurface;
+  elements.operationsMenuButton.hidden = !showSecondarySurface;
 }
 
 function setActionVisibility(element, visible) {
@@ -1599,37 +1679,50 @@ function createSidebarLabel(labelText) {
 }
 
 function bindFavoritesDropzone() {
-  const { favoritesDropzone } = elements;
-  favoritesDropzone.addEventListener('dragenter', (event) => {
+  const panel = elements.favoritesPanel;
+  if (!panel) {
+    return;
+  }
+
+  panel.addEventListener('dragenter', (event) => {
     if (!getDraggedFolderPath(event)) {
       return;
     }
+    if (event.target.closest('.favorite-link')) {
+      return;
+    }
     event.preventDefault();
-    favoritesDropzone.classList.add('is-dragover', 'is-drop-target');
+    panel.classList.add('is-dragover', 'is-drop-target');
+    showDropTooltip('Pin to Favorites', event.clientX, event.clientY);
   });
-  favoritesDropzone.addEventListener('dragover', (event) => {
+  panel.addEventListener('dragover', (event) => {
     if (!getDraggedFolderPath(event)) {
+      return;
+    }
+    if (event.target.closest('.favorite-link')) {
       return;
     }
     event.preventDefault();
     event.dataTransfer.dropEffect = 'copy';
-    favoritesDropzone.classList.add('is-dragover', 'is-drop-target');
+    panel.classList.add('is-dragover', 'is-drop-target');
+    showDropTooltip('Pin to Favorites', event.clientX, event.clientY);
   });
-  favoritesDropzone.addEventListener('dragleave', (event) => {
-    if (event.relatedTarget && favoritesDropzone.contains(event.relatedTarget)) {
+  panel.addEventListener('dragleave', (event) => {
+    if (event.relatedTarget && panel.contains(event.relatedTarget)) {
       return;
     }
-    favoritesDropzone.classList.remove('is-dragover', 'is-drop-target');
+    panel.classList.remove('is-dragover', 'is-drop-target');
+    hideDropTooltip();
   });
-  favoritesDropzone.addEventListener('drop', (event) => {
+  panel.addEventListener('drop', (event) => {
     const path = getDraggedFolderPath(event);
-    favoritesDropzone.classList.remove('is-dragover', 'is-drop-target');
-    if (!path) {
+    panel.classList.remove('is-dragover', 'is-drop-target');
+    if (!path || event.target.closest('.favorite-link')) {
       return;
     }
     event.preventDefault();
-    state.draggedFolderPath = '';
-    state.draggedPaths = [];
+    event.stopPropagation();
+    clearDraggedState();
     void pinFolder(path);
   });
 }
@@ -1660,8 +1753,7 @@ function makeEntryDragSource(node, entry) {
     }
   });
   node.addEventListener('dragend', () => {
-    state.draggedFolderPath = '';
-    state.draggedPaths = [];
+    clearDraggedState();
   });
 }
 
@@ -1692,7 +1784,9 @@ function bindFolderDropTarget(node, getTargetPath) {
       return;
     }
     event.preventDefault();
+    event.stopPropagation();
     node.classList.add('is-drop-target');
+    showDropTooltip(getDropActionLabel(getTargetPath(), event.ctrlKey ? 'copy' : 'move'), event.clientX, event.clientY);
   });
 
   node.addEventListener('dragover', (event) => {
@@ -1701,8 +1795,10 @@ function bindFolderDropTarget(node, getTargetPath) {
       return;
     }
     event.preventDefault();
+    event.stopPropagation();
     event.dataTransfer.dropEffect = event.ctrlKey ? 'copy' : 'move';
     node.classList.add('is-drop-target');
+    showDropTooltip(getDropActionLabel(getTargetPath(), event.ctrlKey ? 'copy' : 'move'), event.clientX, event.clientY);
   });
 
   node.addEventListener('dragleave', (event) => {
@@ -1710,6 +1806,7 @@ function bindFolderDropTarget(node, getTargetPath) {
       return;
     }
     node.classList.remove('is-drop-target');
+    hideDropTooltip();
   });
 
   node.addEventListener('drop', (event) => {
@@ -1719,10 +1816,36 @@ function bindFolderDropTarget(node, getTargetPath) {
       return;
     }
     event.preventDefault();
-    state.draggedFolderPath = '';
-    state.draggedPaths = [];
+    event.stopPropagation();
+    clearDraggedState();
     void transferPaths(draggedPaths, getTargetPath(), event.ctrlKey ? 'copy' : 'move');
   });
+}
+
+function clearDraggedState() {
+  state.draggedFolderPath = '';
+  state.draggedPaths = [];
+  hideDropTooltip();
+}
+
+function getDropActionLabel(targetPath, mode) {
+  return (mode === 'copy' ? 'Copy to ' : 'Move to ') + (targetPath === '/' ? 'Root' : targetPath);
+}
+
+function showDropTooltip(label, clientX, clientY) {
+  if (!label) {
+    hideDropTooltip();
+    return;
+  }
+
+  elements.dropTooltip.hidden = false;
+  elements.dropTooltip.textContent = label;
+  elements.dropTooltip.style.left = clientX + 'px';
+  elements.dropTooltip.style.top = clientY + 'px';
+}
+
+function hideDropTooltip() {
+  elements.dropTooltip.hidden = true;
 }
 
 function isSelectedDirectory(path) {
@@ -1757,6 +1880,28 @@ async function pinFolder(path) {
   await persistFavorites();
   await renderSidebarTree();
   renderSelectionAction();
+}
+
+async function loadAppVersion() {
+  try {
+    const response = await fetch(EXPLORER_MANIFEST_PATH, { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error('Could not load manifest');
+    }
+    const manifest = await response.json();
+    if (typeof manifest.version === 'string' && manifest.version.trim()) {
+      state.appVersion = manifest.version.trim();
+    }
+  } catch {
+    state.appVersion = EXPLORER_FALLBACK_VERSION;
+  }
+
+  setStatus();
+}
+
+function syncViewportHeight() {
+  const viewportHeight = window.visualViewport?.height || window.innerHeight;
+  document.documentElement.style.setProperty('--viewport-height', viewportHeight + 'px');
 }
 
 async function unpinFolder(path) {
@@ -1899,7 +2044,7 @@ function buildActionMenuItems({
   }
 
   if (includeClearSelection && state.selectedPaths.size > 0) {
-    items.push({ label: 'Clear selection', icon: 'fa-rectangle-xmark', action: () => clearSelection() });
+    items.push({ label: 'Clear selection', icon: 'fa-border-none', action: () => clearSelection() });
   }
 
   if (includeNewItems) {

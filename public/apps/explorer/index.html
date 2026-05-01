@@ -78,6 +78,11 @@
 
             <div id="content-actions-divider" class="toolbar-divider content-actions-divider" aria-hidden="true" hidden></div>
 
+            <button id="clear-selection-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon" type="button" aria-label="Clear selection" title="Clear selection" hidden>
+              <i class="fa-solid fa-border-none" aria-hidden="true"></i>
+              <span class="sr-only">Clear selection</span>
+            </button>
+
             <div id="content-actions-secondary" class="toolbar-group content-actions-secondary" hidden>
               <button id="cut-selection-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon" type="button" aria-label="Cut selected items" title="Cut selected items" hidden>
                 <i class="fa-solid fa-scissors" aria-hidden="true"></i>
@@ -106,10 +111,6 @@
               <button id="delete-selection-button" class="toolbar-button toolbar-button--danger toolbar-button--icon" type="button" aria-label="Delete selected" title="Delete selected" hidden>
                 <i class="fa-solid fa-trash" aria-hidden="true"></i>
                 <span class="sr-only">Delete selected</span>
-              </button>
-              <button id="clear-selection-button" class="toolbar-button toolbar-button--ghost toolbar-button--icon" type="button" aria-label="Clear selection" title="Clear selection" hidden>
-                <i class="fa-solid fa-rectangle-xmark" aria-hidden="true"></i>
-                <span class="sr-only">Clear selection</span>
               </button>
             </div>
 
@@ -141,7 +142,7 @@
 
     <footer class="status-bar">
       <span id="selection-summary">No selection</span>
-      <span id="status-message">Loading…</span>
+      <span id="status-message">Explorer</span>
     </footer>
   </div>
 
@@ -215,6 +216,7 @@
   </dialog>
 
   <div id="action-menu" class="action-menu" hidden></div>
+  <div id="drop-tooltip" class="drop-tooltip" hidden></div>
 
   <script type="module" src="/public/apps/explorer/explorer.js"></script>
 </body>
