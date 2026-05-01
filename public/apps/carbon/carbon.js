@@ -176,7 +176,6 @@ async function selectTab(id) {
 
   await flushPendingSave({ silent: true });
   activeTabId = id;
-  await writeState();
   render();
   mountEditorForActiveTab();
   setSidebarOpen(false);
