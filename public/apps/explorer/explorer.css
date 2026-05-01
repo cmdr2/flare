@@ -27,7 +27,8 @@ body {
 
 body {
   margin: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   background:
     radial-gradient(circle at top left, rgba(86, 144, 212, 0.16), transparent 24%),
     linear-gradient(180deg, #f6fbff 0%, #eef4fb 100%);

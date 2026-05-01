@@ -228,7 +228,9 @@ function handleSyncProgress(payload) {
 
     if (phase === 'upload' || phase === 'download') {
         setStatus(phase === 'upload' ? 'Uploading' : 'Downloading');
-        setProgress(payload.completed ?? 0, payload.total ?? 0);
+        if (Number.isFinite(payload.total) && payload.total > 0) {
+            setProgress(payload.completed ?? 0, payload.total);
+        }
         return;
     }
 

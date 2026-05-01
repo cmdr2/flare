@@ -232,8 +232,8 @@ function getSyncTasks(localNew, remoteNew, localOld, remoteOld) {
         } else if (localNew[filePath] !== remoteNew[filePath] && remoteNew[filePath] === remoteOld[filePath] && remoteNew[filePath] !== undefined) {
             tasks.upload[filePath] = 1;
             logTaskDecision('upload', filePath, 'selected', 'local differs while remote stayed unchanged', localNew, remoteNew, localOld, remoteOld);
-        } else {
-            logTaskDecision('upload', filePath, 'skipped', 'upload conditions did not match', localNew, remoteNew, localOld, remoteOld);
+        } else if (localNew[filePath] !== remoteNew[filePath]) {
+            logTaskDecision('upload', filePath, 'skipped', 'upload skipped due to inconsistent hash conditions', localNew, remoteNew, localOld, remoteOld);
         }
     }
 
@@ -241,8 +241,6 @@ function getSyncTasks(localNew, remoteNew, localOld, remoteOld) {
         if (localNew[filePath] === undefined && remoteNew[filePath] === remoteOld[filePath] && remoteNew[filePath] !== undefined) {
             tasks.remoteDelete[filePath] = 1;
             logTaskDecision('remote-delete', filePath, 'selected', 'local file deleted since last sync', localNew, remoteNew, localOld, remoteOld);
-        } else {
-            logTaskDecision('remote-delete', filePath, 'skipped', 'remote delete conditions did not match', localNew, remoteNew, localOld, remoteOld);
         }
     }
 
@@ -250,8 +248,6 @@ function getSyncTasks(localNew, remoteNew, localOld, remoteOld) {
         if (remoteNew[filePath] === undefined) {
             tasks.localDelete[filePath] = 1;
             logTaskDecision('local-delete', filePath, 'selected', 'remote file deleted since last sync', localNew, remoteNew, localOld, remoteOld);
-        } else {
-            logTaskDecision('local-delete', filePath, 'skipped', 'local delete conditions did not match', localNew, remoteNew, localOld, remoteOld);
         }
     }
 
@@ -262,8 +258,8 @@ function getSyncTasks(localNew, remoteNew, localOld, remoteOld) {
         } else if (remoteOld[filePath] !== remoteNew[filePath] && localNew[filePath] !== remoteNew[filePath]) {
             tasks.download[filePath] = 1;
             logTaskDecision('download', filePath, 'selected', 'remote changed and local differs', localNew, remoteNew, localOld, remoteOld);
-        } else {
-            logTaskDecision('download', filePath, 'skipped', 'download conditions did not match', localNew, remoteNew, localOld, remoteOld);
+        } else if (localNew[filePath] !== remoteNew[filePath]) {
+            logTaskDecision('download', filePath, 'skipped', 'download skipped due to inconsistent hash conditions', localNew, remoteNew, localOld, remoteOld);
         }
     }
 
@@ -309,7 +305,10 @@ async function runSyncTasks(tasks, remoteStorage, local, remote, requestId, onPr
     if (uploadFiles.length > 0) {
         onProgress?.({ phase: 'upload', message: 'Uploading ' + uploadFiles.length + ' file(s)..', requestId, completed: 0, total: uploadFiles.length });
         logSyncEntries('upload', uploadFiles, local, remote, requestId, onProgress);
-        await remoteStorage.upload(uploadFiles);
+        await remoteStorage.upload(uploadFiles, {
+            requestId,
+            onProgress
+        });
     } else {
         logSyncDebug('run:skip-upload', { requestId, count: 0 });
     }
@@ -317,7 +316,10 @@ async function runSyncTasks(tasks, remoteStorage, local, remote, requestId, onPr
     if (downloadFiles.length > 0) {
         onProgress?.({ phase: 'download', message: 'Downloading ' + downloadFiles.length + ' file(s)..', requestId, completed: 0, total: downloadFiles.length });
         logSyncEntries('download', downloadFiles, local, remote, requestId, onProgress);
-        await remoteStorage.download(downloadFiles);
+        await remoteStorage.download(downloadFiles, {
+            requestId,
+            onProgress
+        });
     } else {
         logSyncDebug('run:skip-download', { requestId, count: 0 });
     }
@@ -357,9 +359,7 @@ function logSyncEntries(phase, paths, local, remote, requestId, onProgress) {
             append: true,
             path,
             localHash,
-            remoteHash,
-            completed: index + 1,
-            total: paths.length
+            remoteHash
         });
     }
 }
@@ -478,8 +478,8 @@ async function createRemoteStorage(credentials) {
             return entries;
         },
 
-        async upload(paths) {
-            for (const path of paths) {
+        async upload(paths, { requestId, onProgress } = {}) {
+            for (const [index, path] of paths.entries()) {
                 const key = toRemoteKey(filesPrefix, path);
                 try {
                     logSyncDebug('remote:upload:start', { path, key, bucket: credentials.bucket });
@@ -497,6 +497,15 @@ async function createRemoteStorage(credentials) {
                         bytes: body.byteLength,
                         hash
                     });
+                    onProgress?.({
+                        phase: 'upload',
+                        message: 'Uploaded ' + path,
+                        requestId,
+                        append: true,
+                        path,
+                        completed: index + 1,
+                        total: paths.length
+                    });
                 } catch (error) {
                     logSyncError('remote:upload:failed', error, { path, key, bucket: credentials.bucket });
                     throw error;
@@ -504,8 +513,8 @@ async function createRemoteStorage(credentials) {
             }
         },
 
-        async download(paths) {
-            for (const path of paths) {
+        async download(paths, { requestId, onProgress } = {}) {
+            for (const [index, path] of paths.entries()) {
                 const key = toRemoteKey(filesPrefix, path);
                 try {
                     logSyncDebug('remote:download:start', { path, key, bucket: credentials.bucket });
@@ -520,6 +529,15 @@ async function createRemoteStorage(credentials) {
                         key,
                         bytes: body.byteLength,
                         metadataHash: response.Metadata?.syncchecksum || '(missing)'
+                    });
+                    onProgress?.({
+                        phase: 'download',
+                        message: 'Downloaded ' + path,
+                        requestId,
+                        append: true,
+                        path,
+                        completed: index + 1,
+                        total: paths.length
                     });
                 } catch (error) {
                     logSyncError('remote:download:failed', error, { path, key, bucket: credentials.bucket });
