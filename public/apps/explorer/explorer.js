@@ -5,8 +5,8 @@ registerPwa('explorer');
 
 const EXPLORER_CONFIG_DIR = '/home/.explorer';
 const EXPLORER_CONFIG_PATH = EXPLORER_CONFIG_DIR + '/config.json';
-const EXPLORER_MANIFEST_PATH = '/public/apps/explorer/manifest.webmanifest';
-const EXPLORER_FALLBACK_VERSION = '0.3.0';
+const STORAGE_STATUS_LOADING = 'Checking storage...';
+const STORAGE_STATUS_UNAVAILABLE = 'Storage info unavailable';
 const SIDEBAR_PLACES = [
   { label: 'Root', path: '/', icon: 'fa-hard-drive' },
   { label: 'Home', path: '/home', icon: 'fa-house' },
@@ -23,7 +23,6 @@ const state = {
   lastTouchTreeTapPath: '',
   lastTouchTreeTapAt: 0,
   favorites: [],
-  appVersion: EXPLORER_FALLBACK_VERSION,
   pathTypes: new Map(),
   clipboardMode: '',
   clipboardPaths: [],
@@ -41,7 +40,10 @@ const state = {
   pendingTouchClick: false,
   suppressedClickPath: null,
   contentRenderToken: 0,
-  sidebarRenderToken: 0
+  sidebarRenderToken: 0,
+  storageStatus: STORAGE_STATUS_LOADING,
+  lastStatusMessage: '',
+  storageEstimateToken: 0
 };
 
 const MOBILE_LONG_PRESS_MS = 420;
@@ -259,7 +261,7 @@ const elements = {
 
 syncViewportHeight();
 bindEvents();
-await loadAppVersion();
+renderStatusMessage();
 await refreshExplorer();
 
 function bindEvents() {
@@ -687,7 +689,78 @@ function updateSelectionSummary() {
 }
 
 function setStatus(message) {
-  elements.statusMessage.textContent = 'Explorer v' + state.appVersion;
+  state.lastStatusMessage = message || '';
+  renderStatusMessage();
+  void refreshStorageEstimate();
+}
+
+function renderStatusMessage() {
+  elements.statusMessage.textContent = state.storageStatus;
+  elements.statusMessage.title = state.lastStatusMessage || state.storageStatus;
+}
+
+async function refreshStorageEstimate() {
+  const token = ++state.storageEstimateToken;
+
+  try {
+    if (!navigator.storage?.estimate) {
+      throw new Error('StorageManager estimate unavailable');
+    }
+
+    const estimate = await navigator.storage.estimate();
+    const nextStatus = formatStorageEstimate(estimate);
+    if (token !== state.storageEstimateToken) {
+      return;
+    }
+
+    state.storageStatus = nextStatus;
+  } catch {
+    if (token !== state.storageEstimateToken) {
+      return;
+    }
+
+    state.storageStatus = STORAGE_STATUS_UNAVAILABLE;
+  }
+
+  renderStatusMessage();
+}
+
+function formatStorageEstimate(estimate) {
+  const quota = Number(estimate?.quota);
+  const indexedDbUsage = getIndexedDbUsage(estimate);
+  if (!Number.isFinite(quota) || quota <= 0 || !Number.isFinite(indexedDbUsage) || indexedDbUsage < 0) {
+    return STORAGE_STATUS_UNAVAILABLE;
+  }
+
+  return formatBytes(indexedDbUsage) + ' used of ' + formatBytes(quota);
+}
+
+function getIndexedDbUsage(estimate) {
+  const usageDetails = estimate?.usageDetails;
+  if (usageDetails && typeof usageDetails === 'object') {
+    const indexedDbUsage = usageDetails.indexedDB ?? usageDetails.indexedDb;
+    if (Number.isFinite(indexedDbUsage)) {
+      return Number(indexedDbUsage);
+    }
+  }
+
+  return Number(estimate?.usage || 0);
+}
+
+function formatBytes(bytes) {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  let unitIndex = 0;
+  let value = bytes;
+
+  while (value >= 1000 && unitIndex < units.length - 1) {
+    value /= 1000;
+    unitIndex += 1;
+  }
+
+  const maximumFractionDigits = value >= 100 ? 0 : 1;
+  return new Intl.NumberFormat(undefined, {
+    maximumFractionDigits
+  }).format(value) + ' ' + units[unitIndex];
 }
 
 function describeFolderState() {
@@ -1888,23 +1961,6 @@ async function pinFolder(path) {
   await persistFavorites();
   await renderSidebarTree();
   renderSelectionAction();
-}
-
-async function loadAppVersion() {
-  try {
-    const response = await fetch(EXPLORER_MANIFEST_PATH, { cache: 'no-store' });
-    if (!response.ok) {
-      throw new Error('Could not load manifest');
-    }
-    const manifest = await response.json();
-    if (typeof manifest.version === 'string' && manifest.version.trim()) {
-      state.appVersion = manifest.version.trim();
-    }
-  } catch {
-    state.appVersion = EXPLORER_FALLBACK_VERSION;
-  }
-
-  setStatus();
 }
 
 function syncViewportHeight() {

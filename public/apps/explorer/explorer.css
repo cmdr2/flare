@@ -16,6 +16,74 @@
   --danger-soft: rgba(192, 54, 44, 0.12);
   --text-muted: #5d6b7b;
   --shadow: 0 18px 42px rgba(54, 78, 106, 0.12);
+  --app-background: #f4f8fc;
+  --app-background-image:
+    radial-gradient(circle at top left, rgba(86, 144, 212, 0.16), transparent 24%),
+    linear-gradient(180deg, #f6fbff 0%, #eef4fb 100%);
+  --surface-border: rgba(255, 255, 255, 0.74);
+  --ghost-surface: rgba(255, 255, 255, 0.86);
+  --ghost-text: #203347;
+  --input-surface: rgba(255, 255, 255, 0.94);
+  --input-text: #17212e;
+  --section-divider: rgba(213, 223, 235, 0.9);
+  --favorites-surface: rgba(255, 255, 255, 0.54);
+  --favorites-drop-surface: rgba(15, 108, 189, 0.08);
+  --entry-icon-surface: rgba(219, 229, 241, 0.9);
+  --entry-icon-color: #33506e;
+  --empty-state-surface: rgba(255, 255, 255, 0.65);
+  --menu-divider: rgba(213, 223, 235, 0.95);
+  --modal-footer-surface: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.92) 26%);
+  --editor-surface: rgba(246, 250, 255, 0.95);
+  --field-surface: rgba(255, 255, 255, 0.95);
+  --drop-tooltip-bg: rgba(23, 33, 46, 0.92);
+  --drop-tooltip-color: #fff;
+  --drop-tooltip-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
+  --sidebar-backdrop: rgba(15, 23, 42, 0.18);
+  --error: #b42318;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    background: #181818;
+    color: #d4d4d4;
+    --border: #313131;
+    --border-strong: #454545;
+    --surface: rgba(37, 37, 38, 0.9);
+    --surface-strong: rgba(30, 30, 30, 0.98);
+    --surface-muted: #252526;
+    --accent: #0e639c;
+    --accent-soft: rgba(14, 99, 156, 0.18);
+    --accent-strong: #3794ff;
+    --danger: #f48771;
+    --danger-soft: rgba(244, 135, 113, 0.14);
+    --text-muted: #9d9d9d;
+    --shadow: 0 18px 42px rgba(0, 0, 0, 0.32);
+    --app-background: #181818;
+    --app-background-image:
+      radial-gradient(circle at top left, rgba(255, 255, 255, 0.04), transparent 26%),
+      linear-gradient(180deg, #1b1b1c 0%, #161616 100%);
+    --surface-border: rgba(255, 255, 255, 0.05);
+    --ghost-surface: rgba(45, 45, 48, 0.9);
+    --ghost-text: #cccccc;
+    --input-surface: rgba(30, 30, 30, 0.92);
+    --input-text: #cccccc;
+    --section-divider: rgba(255, 255, 255, 0.08);
+    --favorites-surface: rgba(30, 30, 30, 0.66);
+    --favorites-drop-surface: rgba(14, 99, 156, 0.16);
+    --entry-icon-surface: rgba(60, 60, 60, 0.92);
+    --entry-icon-color: #d0d0d0;
+    --empty-state-surface: rgba(37, 37, 38, 0.84);
+    --menu-divider: rgba(255, 255, 255, 0.08);
+    --modal-footer-surface: linear-gradient(180deg, rgba(30, 30, 30, 0) 0%, rgba(30, 30, 30, 0.94) 26%);
+    --editor-surface: rgba(30, 30, 30, 0.96);
+    --field-surface: rgba(37, 37, 38, 0.96);
+    --drop-tooltip-bg: rgba(244, 244, 244, 0.96);
+    --drop-tooltip-color: #1e1e1e;
+    --drop-tooltip-shadow: 0 10px 24px rgba(0, 0, 0, 0.32);
+    --sidebar-backdrop: rgba(0, 0, 0, 0.42);
+    --error: #f48771;
+  }
 }
 
 * {
@@ -32,9 +100,7 @@ body {
   margin: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  background:
-    radial-gradient(circle at top left, rgba(86, 144, 212, 0.16), transparent 24%),
-    linear-gradient(180deg, #f6fbff 0%, #eef4fb 100%);
+  background: var(--app-background-image);
 }
 
 button,
@@ -67,7 +133,7 @@ button {
 .status-bar,
 .modal-card {
   background: var(--surface);
-  border: 1px solid rgba(255, 255, 255, 0.74);
+  border: 1px solid var(--surface-border);
   box-shadow: var(--shadow);
   backdrop-filter: blur(18px);
 }
@@ -147,8 +213,8 @@ button {
 .toolbar-button--ghost,
 .view-button {
   border-color: var(--border);
-  background: rgba(255, 255, 255, 0.86);
-  color: #203347;
+  background: var(--ghost-surface);
+  color: var(--ghost-text);
 }
 
 .toolbar-button--icon,
@@ -198,7 +264,7 @@ button {
   min-height: 38px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--input-surface);
   min-width: 0;
   flex: 1 1 auto;
 }
@@ -231,7 +297,7 @@ button {
   width: 100%;
   border: 0;
   background: transparent;
-  color: #17212e;
+  color: var(--input-text);
   outline: none;
 }
 
@@ -279,7 +345,7 @@ button {
 
 .sidebar-header {
   padding: 10px 10px 8px;
-  border-bottom: 1px solid rgba(213, 223, 235, 0.9);
+  border-bottom: 1px solid var(--section-divider);
 }
 
 .sidebar-close {
@@ -305,7 +371,7 @@ button {
 
 .sidebar-divider {
   height: 1px;
-  background: rgba(194, 205, 221, 0.9);
+  background: var(--section-divider);
 }
 
 .favorites-header {
@@ -335,14 +401,14 @@ button {
   height: 100%;
   border-radius: 12px;
   border: 1px dashed var(--border-strong);
-  background: rgba(255, 255, 255, 0.54);
+  background: var(--favorites-surface);
   grid-template-rows: auto minmax(0, 1fr);
   align-content: stretch;
 }
 
 .favorites-panel.is-dragover {
   border-color: rgba(15, 108, 189, 0.38);
-  background: rgba(15, 108, 189, 0.08);
+  background: var(--favorites-drop-surface);
 }
 
 .sidebar-link,
@@ -443,7 +509,7 @@ button {
   place-items: center;
   border: 0;
   background: transparent;
-  color: #637789;
+  color: var(--text-muted);
   cursor: pointer;
   border-radius: 6px;
   font-size: 0.95rem;
@@ -492,7 +558,7 @@ button {
 
 .content-header {
   padding: 8px 10px 6px;
-  border-bottom: 1px solid rgba(213, 223, 235, 0.9);
+  border-bottom: 1px solid var(--section-divider);
   flex-wrap: wrap;
 }
 
@@ -640,8 +706,8 @@ button {
   display: inline-grid;
   place-items: center;
   border-radius: 9px;
-  background: rgba(219, 229, 241, 0.9);
-  color: #33506e;
+  background: var(--entry-icon-surface);
+  color: var(--entry-icon-color);
   flex: none;
   font-size: 0.95rem;
 }
@@ -733,7 +799,7 @@ button {
   padding: 16px;
   border-radius: 14px;
   border: 1px dashed var(--border-strong);
-  background: rgba(255, 255, 255, 0.65);
+  background: var(--empty-state-surface);
   color: var(--text-muted);
   text-align: center;
 }
@@ -790,7 +856,7 @@ button {
   max-width: min(calc(100vw - 16px), 240px);
   padding: 4px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.74);
+  border: 1px solid var(--surface-border);
   background: var(--surface-strong);
   box-shadow: var(--shadow);
   display: grid;
@@ -829,7 +895,7 @@ button {
 .action-menu-divider {
   height: 1px;
   margin: 4px 2px;
-  background: rgba(213, 223, 235, 0.95);
+  background: var(--menu-divider);
 }
 
 .modal-card {
@@ -852,7 +918,7 @@ button {
   position: sticky;
   bottom: 0;
   padding-top: 8px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.92) 26%);
+  background: var(--modal-footer-surface);
 }
 
 .modal-card--compact {
@@ -864,7 +930,7 @@ button {
   height: 100%;
   padding: 12px;
   border-radius: 12px;
-  background: rgba(246, 250, 255, 0.95);
+  background: var(--editor-surface);
   border: 1px solid var(--border);
   resize: none;
 }
@@ -875,11 +941,11 @@ button {
   pointer-events: none;
   padding: 4px 8px;
   border-radius: 999px;
-  background: rgba(23, 33, 46, 0.92);
-  color: #fff;
+  background: var(--drop-tooltip-bg);
+  color: var(--drop-tooltip-color);
   font-size: 0.72rem;
   line-height: 1.2;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
+  box-shadow: var(--drop-tooltip-shadow);
   transform: translate(-50%, calc(-100% - 10px));
   white-space: nowrap;
 }
@@ -900,7 +966,7 @@ button {
   padding: 0 10px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--field-surface);
 }
 
 .helper-text,
@@ -909,7 +975,7 @@ button {
 }
 
 .error-text {
-  color: #b42318;
+  color: var(--error);
   min-height: 1.3em;
 }
 
@@ -962,7 +1028,7 @@ button {
     position: fixed;
     inset: 0;
     z-index: 1000;
-    background: rgba(15, 23, 42, 0.18);
+    background: var(--sidebar-backdrop);
     backdrop-filter: blur(2px);
   }
 }
