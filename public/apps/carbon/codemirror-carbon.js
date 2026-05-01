@@ -32,7 +32,7 @@ const carbonTheme = EditorView.theme({
   '&': {
     height: '100%',
     fontSize: '14px',
-    backgroundColor: '#272822',
+    backgroundColor: '#23241f',
     color: '#f8f8f2'
   },
   '.cm-scroller': {
