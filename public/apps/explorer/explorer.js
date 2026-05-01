@@ -7,16 +7,21 @@ const state = {
   currentFolder: '/',
   currentView: loadStoredView(),
   currentEntries: [],
-  selectionPath: '/',
+  selectionPath: null,
+  selectedPaths: new Set(),
   expandedFolders: new Set(['/']),
   sidebarOpen: false,
   createKind: 'file',
   editorPath: '',
   editorDirty: false,
-  selectedEntry: null,
+  pendingTouchClick: false,
+  suppressedClickPath: null,
   contentRenderToken: 0,
   sidebarRenderToken: 0
 };
+
+const MOBILE_LONG_PRESS_MS = 420;
+let longPressState = null;
 
 const formatDate = new Intl.DateTimeFormat(undefined, {
   month: 'short',
@@ -31,6 +36,7 @@ const elements = {
   contentView: document.getElementById('content-view'),
   selectionSummary: document.getElementById('selection-summary'),
   statusMessage: document.getElementById('status-message'),
+  clearSelectionButton: document.getElementById('clear-selection-button'),
   sidebar: document.getElementById('sidebar'),
   sidebarBackdrop: document.getElementById('sidebar-backdrop'),
   sidebarTree: document.getElementById('sidebar-tree'),
@@ -86,12 +92,16 @@ function bindEvents() {
 
   elements.newFileButton.addEventListener('click', () => openCreateDialog('file'));
   elements.newFolderButton.addEventListener('click', () => openCreateDialog('folder'));
+  elements.clearSelectionButton.addEventListener('click', () => clearSelection());
 
   for (const button of elements.viewButtons) {
     button.addEventListener('click', () => {
       setView(button.dataset.view || 'grid');
     });
   }
+
+  elements.contentView.addEventListener('click', handleBackgroundClick);
+  elements.sidebarTree.addEventListener('click', handleBackgroundClick);
 
   elements.editorSaveButton.addEventListener('click', () => {
     void saveEditor();
@@ -143,19 +153,18 @@ async function refreshExplorer(message = '') {
     state.currentFolder = current;
     expandAncestors(current);
     state.currentEntries = await readDirectory(current);
-    if (!isSelectablePath(state.selectionPath, state.currentEntries) && state.selectionPath !== current) {
-      state.selectionPath = current;
+    const visiblePaths = new Set(state.currentEntries.map((entry) => entry.path));
+    state.selectedPaths = new Set(Array.from(state.selectedPaths).filter((path) => visiblePaths.has(path)));
+    if (state.selectionPath && !state.selectedPaths.has(state.selectionPath)) {
+      state.selectionPath = Array.from(state.selectedPaths).at(-1) || null;
     }
-
-    state.selectedEntry = state.selectionPath === current
-      ? await describePath(current)
-      : state.currentEntries.find((entry) => entry.path === state.selectionPath) || null;
 
     elements.addressInput.value = current;
     elements.upButton.disabled = current === '/';
     renderViewButtons();
     await renderSidebarTree();
     await renderContent();
+    renderSelectionAction();
     updateSelectionSummary();
     setStatus(message || describeFolderState());
   } catch (error) {
@@ -203,11 +212,9 @@ function createEntryButton(entry) {
   const button = document.createElement('button');
   button.type = 'button';
   button.dataset.path = entry.path;
-  button.className = 'content-item' + (state.selectionPath === entry.path ? ' is-selected' : '');
-  button.addEventListener('click', () => {
-    selectPath(entry.path, entry);
-    void openEntry(entry);
-  });
+  button.className = 'content-item' + (state.selectedPaths.has(entry.path) ? ' is-selected' : '');
+  button.setAttribute('aria-pressed', String(state.selectedPaths.has(entry.path)));
+  bindEntryInteractions(button, entry);
 
   const icon = createIcon(entry.type);
   const meta = document.createElement('div');
@@ -294,27 +301,16 @@ async function buildTreeBranch(path, { includeFiles, rootLabel, behavior = 'side
   const node = document.createElement('button');
   node.type = 'button';
   node.dataset.path = path;
-  node.className = 'tree-node' + (state.selectionPath === path || state.currentFolder === path ? ' is-active' : '');
-  if (behavior === 'content-tree' && entry.type === 'directory') {
-    node.addEventListener('click', (event) => {
-      if (event.detail > 1) {
-        return;
-      }
-
-        selectPath(path, entry);
+  node.className = 'tree-node' + (state.selectedPaths.has(path) || state.currentFolder === path ? ' is-active' : '');
+  node.setAttribute('aria-pressed', String(state.selectedPaths.has(path)));
+  bindEntryInteractions(node, entry, {
+    onDesktopSelect() {
+      if (behavior === 'content-tree' && entry.type === 'directory') {
         toggleExpandedFolder(path);
         void rerenderTreeViews();
-    });
-    node.addEventListener('dblclick', () => {
-      selectPath(path, entry);
-      void navigateTo(path);
-    });
-  } else {
-    node.addEventListener('click', () => {
-      selectPath(path, entry);
-      void openEntry(entry);
-    });
-  }
+      }
+    }
+  });
 
   const icon = createIcon(entry.type);
   const textWrap = document.createElement('span');
@@ -372,23 +368,30 @@ function toggleExpandedFolder(path) {
 
 function selectPath(path, entry = null) {
   state.selectionPath = path;
-  state.selectedEntry = entry;
+  state.selectedPaths = new Set([path]);
   updateSelectionSummary();
+  renderSelectionAction();
   syncSelectedStyles();
 }
 
 function syncSelectedStyles() {
-  const selectedPath = state.selectionPath;
   for (const node of document.querySelectorAll('.content-item')) {
-    node.classList.toggle('is-selected', node.dataset.path === selectedPath);
+    const selected = state.selectedPaths.has(node.dataset.path);
+    node.classList.toggle('is-selected', selected);
+    node.setAttribute('aria-pressed', String(selected));
   }
   for (const node of document.querySelectorAll('.tree-node')) {
-    node.classList.toggle('is-active', node.dataset.path === selectedPath || node.dataset.path === state.currentFolder);
+    const active = state.selectedPaths.has(node.dataset.path) || node.dataset.path === state.currentFolder;
+    node.classList.toggle('is-active', active);
+    node.setAttribute('aria-pressed', String(state.selectedPaths.has(node.dataset.path)));
   }
 }
 
 async function openEntry(entry) {
-  const target = entry || state.currentEntries.find((item) => item.path === state.selectionPath) || await describePath(state.selectionPath);
+  const target = entry || state.currentEntries.find((item) => item.path === state.selectionPath) || null;
+  if (!target) {
+    return;
+  }
   if (target.type === 'directory') {
     await navigateTo(target.path);
     return;
@@ -400,7 +403,8 @@ async function openEntry(entry) {
 async function navigateTo(path, { selectionPath, silent = false } = {}) {
   const folder = await ensureDirectory(path);
   state.currentFolder = folder;
-  state.selectionPath = selectionPath || folder;
+  state.selectionPath = selectionPath || null;
+  state.selectedPaths = selectionPath ? new Set([selectionPath]) : new Set();
   setSidebarOpen(false);
   await refreshExplorer(silent ? '' : 'Opened ' + folder);
 }
@@ -420,14 +424,20 @@ function renderViewButtons() {
 }
 
 function updateSelectionSummary() {
-  const selected = state.selectedEntry || state.currentEntries.find((entry) => entry.path === state.selectionPath);
-  if (!selected && state.selectionPath === state.currentFolder) {
+  const selectedCount = state.selectedPaths.size;
+  if (selectedCount === 0) {
     elements.selectionSummary.textContent = 'Viewing ' + state.currentFolder;
     return;
   }
 
+  if (selectedCount > 1) {
+    elements.selectionSummary.textContent = selectedCount + ' items selected';
+    return;
+  }
+
+  const selected = state.currentEntries.find((entry) => entry.path === state.selectionPath);
   if (!selected) {
-    elements.selectionSummary.textContent = 'No selection';
+    elements.selectionSummary.textContent = '1 item selected';
     return;
   }
 
@@ -477,6 +487,7 @@ async function saveEditor() {
   state.editorDirty = false;
   elements.editorStatus.textContent = 'Saved';
   state.selectionPath = state.editorPath;
+  state.selectedPaths = new Set([state.editorPath]);
   await refreshExplorer('Saved ' + state.editorPath);
 }
 
@@ -510,6 +521,7 @@ async function createItem() {
       await fs.promises.mkdir(targetPath);
       closeDialog(elements.createDialog);
       state.selectionPath = targetPath;
+      state.selectedPaths = new Set([targetPath]);
       state.expandedFolders.add(state.currentFolder);
       await refreshExplorer('Created folder ' + targetPath);
       return;
@@ -518,6 +530,7 @@ async function createItem() {
     closeDialog(elements.createDialog);
     await fs.promises.writeFile(targetPath, '');
     state.selectionPath = targetPath;
+    state.selectedPaths = new Set([targetPath]);
     await refreshExplorer('Created file ' + targetPath);
     await openEditor(targetPath);
   } catch (error) {
@@ -744,4 +757,182 @@ async function pathExists(path) {
 function loadStoredView() {
   const view = window.localStorage.getItem('flare-explorer-view');
   return ['grid', 'list', 'tree'].includes(view) ? view : 'grid';
+}
+
+function bindEntryInteractions(node, entry, { onDesktopSelect } = {}) {
+  node.addEventListener('click', (event) => {
+    if (isTouchClick(event)) {
+      handleMobileEntryClick(event, entry);
+      return;
+    }
+
+    handleDesktopEntryClick(event, entry);
+    onDesktopSelect?.();
+  });
+
+  node.addEventListener('dblclick', (event) => {
+    if (isTouchClick(event)) {
+      return;
+    }
+
+    event.preventDefault();
+    if (!state.selectedPaths.has(entry.path)) {
+      selectPath(entry.path);
+    }
+    void openEntry(entry);
+  });
+
+  node.addEventListener('pointerdown', (event) => {
+    state.pendingTouchClick = event.pointerType === 'touch';
+    if (event.pointerType !== 'touch') {
+      return;
+    }
+
+    startLongPress(event, entry);
+  });
+
+  node.addEventListener('pointermove', (event) => {
+    if (event.pointerType !== 'touch') {
+      return;
+    }
+
+    updateLongPress(event);
+  });
+
+  node.addEventListener('pointerup', stopLongPress);
+  node.addEventListener('pointercancel', stopLongPress);
+  node.addEventListener('pointerleave', stopLongPress);
+  node.addEventListener('contextmenu', (event) => {
+    if (isTouchClick(event)) {
+      event.preventDefault();
+    }
+  });
+}
+
+function handleDesktopEntryClick(event, entry) {
+  if (event.ctrlKey || event.metaKey) {
+    toggleSelection(entry.path);
+    return;
+  }
+
+  selectPath(entry.path);
+}
+
+function handleMobileEntryClick(event, entry) {
+  if (consumeSuppressedClick(entry.path)) {
+    event.preventDefault();
+    return;
+  }
+
+  if (state.selectedPaths.size > 0) {
+    toggleSelection(entry.path);
+    return;
+  }
+
+  void openEntry(entry);
+}
+
+function toggleSelection(path) {
+  if (state.selectedPaths.has(path)) {
+    state.selectedPaths.delete(path);
+  } else {
+    state.selectedPaths.add(path);
+  }
+
+  state.selectionPath = state.selectedPaths.has(path)
+    ? path
+    : Array.from(state.selectedPaths).at(-1) || null;
+  updateSelectionSummary();
+  renderSelectionAction();
+  syncSelectedStyles();
+}
+
+function clearSelection() {
+  if (state.selectedPaths.size === 0) {
+    return;
+  }
+
+  state.selectedPaths.clear();
+  state.selectionPath = null;
+  updateSelectionSummary();
+  renderSelectionAction();
+  syncSelectedStyles();
+}
+
+function renderSelectionAction() {
+  const selectedCount = state.selectedPaths.size;
+  elements.clearSelectionButton.hidden = selectedCount === 0;
+  elements.clearSelectionButton.textContent = selectedCount > 1 ? 'Clear ' + selectedCount + ' selected' : 'Clear selection';
+}
+
+function handleBackgroundClick(event) {
+  if (isTouchClick(event)) {
+    return;
+  }
+
+  if (event.target.closest('.content-item, .tree-node, .tree-toggle')) {
+    return;
+  }
+
+  clearSelection();
+}
+
+function isTouchClick(event) {
+  return Boolean(event.sourceCapabilities?.firesTouchEvents) || state.pendingTouchClick;
+}
+
+function startLongPress(event, entry) {
+  stopLongPress();
+  longPressState = {
+    path: entry.path,
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    timer: window.setTimeout(() => {
+      if (!longPressState || longPressState.path !== entry.path || longPressState.pointerId !== event.pointerId) {
+        return;
+      }
+
+      state.suppressedClickPath = entry.path;
+      if (!state.selectedPaths.has(entry.path)) {
+        state.selectedPaths.add(entry.path);
+        state.selectionPath = entry.path;
+        updateSelectionSummary();
+        renderSelectionAction();
+        syncSelectedStyles();
+      }
+    }, MOBILE_LONG_PRESS_MS)
+  };
+}
+
+function updateLongPress(event) {
+  if (!longPressState || longPressState.pointerId !== event.pointerId) {
+    return;
+  }
+
+  if (Math.abs(event.clientX - longPressState.startX) > 8 || Math.abs(event.clientY - longPressState.startY) > 8) {
+    stopLongPress(event);
+  }
+}
+
+function stopLongPress(event) {
+  if (!longPressState) {
+    return;
+  }
+
+  if (event && longPressState.pointerId !== event.pointerId) {
+    return;
+  }
+
+  window.clearTimeout(longPressState.timer);
+  longPressState = null;
+}
+
+function consumeSuppressedClick(path) {
+  if (state.suppressedClickPath !== path) {
+    return false;
+  }
+
+  state.suppressedClickPath = null;
+  return true;
 }
