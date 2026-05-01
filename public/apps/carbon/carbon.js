@@ -15,6 +15,14 @@ const AUTOSAVE_DELAY_MS = 450;
 const EMPTY_TITLE = 'Untitled';
 const FILE_EXTENSION = '.txt';
 const STATE_VERSION = 1;
+const MOBILE_BREAKPOINT_PX = 720;
+const MOBILE_EDGE_SWIPE_PX = 28;
+const MOBILE_OPEN_SWIPE_DISTANCE_PX = 54;
+const MOBILE_CLOSE_SWIPE_DISTANCE_PX = 42;
+const MOBILE_SWIPE_MAX_VERTICAL_DRIFT_PX = 28;
+const MOBILE_SWIPE_LOCK_PX = 10;
+const MOBILE_LONG_PRESS_MS = 320;
+const MOBILE_DRAG_START_DISTANCE_PX = 8;
 const LANGUAGE_IDS = new Set(CARBON_LANGUAGE_OPTIONS.map((option) => option.id));
 
 const ui = {
@@ -37,6 +45,9 @@ let pendingSave = null;
 let isSidebarOpen = false;
 let dragState = null;
 let saveState = 'Loading tabs...';
+let sidebarSwipeState = null;
+let mobileLongPress = null;
+let mobileDragState = null;
 
 ui.newTabButton.addEventListener('click', () => {
   void createTabAtCurrentPosition();
@@ -54,6 +65,9 @@ ui.syntaxSelect.addEventListener('change', () => {
 
 document.addEventListener('keydown', handleDocumentKeydown, true);
 window.addEventListener('resize', syncLayoutOffset);
+document.addEventListener('pointermove', handleGlobalPointerMove, { passive: false });
+document.addEventListener('pointerup', handleGlobalPointerUp, { passive: false });
+document.addEventListener('pointercancel', handleGlobalPointerCancel, { passive: false });
 window.addEventListener('pagehide', () => {
   void flushPendingSave({ silent: true });
 });
@@ -70,6 +84,7 @@ async function initialize() {
   observeSyncBar();
   bindPointerDropTargets(ui.desktopTabStrip);
   bindPointerDropTargets(ui.mobileTabList);
+  bindMobileSidebarGestures();
   await ensureDir(TABS_DIR);
   tabs = await loadTabs();
 
@@ -240,7 +255,7 @@ function createTabNode(tab, axis) {
   const item = document.createElement('div');
   item.className = axis === 'horizontal' ? 'tab-card' : 'tab-list-item';
   item.dataset.id = tab.id;
-  item.draggable = true;
+  item.draggable = axis === 'horizontal';
   if (tab.id === activeTabId) {
     item.classList.add('active');
   }
@@ -264,6 +279,10 @@ function createTabNode(tab, axis) {
   item.addEventListener('dragend', () => {
     clearDropState();
   });
+
+  if (axis === 'vertical') {
+    bindMobileLongPress(item, tab.id);
+  }
 
   const mainButton = document.createElement('button');
   mainButton.type = 'button';
@@ -366,6 +385,259 @@ function bindPointerDropTargets(container) {
     const targetId = dragState.targetId || tabs.at(-1)?.id;
     void completeDrop(targetId);
   });
+}
+
+function bindMobileSidebarGestures() {
+  document.addEventListener('pointerdown', handleSidebarPointerDown, { passive: true });
+}
+
+function handleSidebarPointerDown(event) {
+  if (!isMobileViewport() || event.pointerType === 'mouse' || mobileDragState) {
+    return;
+  }
+
+  if (!isSidebarOpen) {
+    if (event.clientX > MOBILE_EDGE_SWIPE_PX || !isEditorSwipeRegion(event.target)) {
+      return;
+    }
+
+    sidebarSwipeState = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      mode: 'open',
+      locked: false,
+      handled: false
+    };
+    return;
+  }
+
+  const withinSidebar = ui.mobileSidebar.contains(event.target);
+  const withinBackdrop = ui.sidebarBackdrop.contains(event.target);
+  if (!withinSidebar && !withinBackdrop) {
+    return;
+  }
+
+  sidebarSwipeState = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    mode: 'close',
+    locked: false,
+    handled: false
+  };
+}
+
+function handleGlobalPointerMove(event) {
+  handleSidebarPointerMove(event);
+  handleMobileDragMove(event);
+}
+
+function handleGlobalPointerUp(event) {
+  handleSidebarPointerUp(event);
+  handleMobileLongPressEnd(event);
+}
+
+function handleGlobalPointerCancel(event) {
+  cancelSidebarSwipe(event.pointerId);
+  cancelMobileLongPress(event.pointerId);
+  cancelMobileDrag(event.pointerId);
+}
+
+function handleSidebarPointerMove(event) {
+  if (!sidebarSwipeState || sidebarSwipeState.pointerId !== event.pointerId) {
+    return;
+  }
+
+  const deltaX = event.clientX - sidebarSwipeState.startX;
+  const deltaY = event.clientY - sidebarSwipeState.startY;
+  if (!sidebarSwipeState.locked) {
+    if (Math.abs(deltaY) > MOBILE_SWIPE_MAX_VERTICAL_DRIFT_PX) {
+      cancelSidebarSwipe(event.pointerId);
+      return;
+    }
+
+    if (Math.abs(deltaX) < MOBILE_SWIPE_LOCK_PX) {
+      return;
+    }
+
+    if (sidebarSwipeState.mode === 'open' && deltaX <= 0) {
+      cancelSidebarSwipe(event.pointerId);
+      return;
+    }
+
+    if (sidebarSwipeState.mode === 'close' && deltaX >= 0) {
+      cancelSidebarSwipe(event.pointerId);
+      return;
+    }
+
+    sidebarSwipeState.locked = true;
+  }
+
+  const threshold = sidebarSwipeState.mode === 'open'
+    ? MOBILE_OPEN_SWIPE_DISTANCE_PX
+    : MOBILE_CLOSE_SWIPE_DISTANCE_PX;
+  const distance = sidebarSwipeState.mode === 'open' ? deltaX : -deltaX;
+  if (distance >= threshold) {
+    event.preventDefault();
+    sidebarSwipeState.handled = true;
+    setSidebarOpen(sidebarSwipeState.mode === 'open');
+    cancelSidebarSwipe(event.pointerId);
+  }
+}
+
+function handleSidebarPointerUp(event) {
+  cancelSidebarSwipe(event.pointerId);
+}
+
+function cancelSidebarSwipe(pointerId) {
+  if (sidebarSwipeState?.pointerId !== pointerId) {
+    return;
+  }
+
+  sidebarSwipeState = null;
+}
+
+function bindMobileLongPress(item, tabId) {
+  item.addEventListener('pointerdown', (event) => {
+    if (!isMobileViewport() || event.pointerType === 'mouse' || mobileDragState || dragState) {
+      return;
+    }
+
+    if (event.button !== undefined && event.button !== 0) {
+      return;
+    }
+
+    const interactiveControl = event.target.closest('button');
+    if (interactiveControl?.classList.contains('tab-close')) {
+      return;
+    }
+
+    const rect = item.getBoundingClientRect();
+    mobileLongPress = {
+      pointerId: event.pointerId,
+      tabId,
+      item,
+      startX: event.clientX,
+      startY: event.clientY,
+      timer: window.setTimeout(() => {
+        startMobileDrag(item, tabId, event.pointerId, rect);
+      }, MOBILE_LONG_PRESS_MS)
+    };
+  }, { passive: true });
+}
+
+function handleMobileLongPressEnd(event) {
+  cancelMobileLongPress(event.pointerId);
+  finalizeMobileDrag(event.pointerId);
+}
+
+function cancelMobileLongPress(pointerId) {
+  if (mobileLongPress?.pointerId !== pointerId) {
+    return;
+  }
+
+  clearTimeout(mobileLongPress.timer);
+  mobileLongPress.item.classList.remove('long-press-armed');
+  mobileLongPress = null;
+}
+
+function startMobileDrag(item, tabId, pointerId, rect) {
+  if (!mobileLongPress || mobileLongPress.pointerId !== pointerId || mobileLongPress.tabId !== tabId) {
+    return;
+  }
+
+  mobileLongPress.item.classList.add('long-press-armed');
+  dragState = { id: tabId, targetId: tabId, after: false };
+  mobileDragState = {
+    pointerId,
+    item,
+    tabId,
+    axis: 'vertical',
+    lastClientX: mobileLongPress.startX,
+    lastClientY: mobileLongPress.startY,
+    active: false
+  };
+}
+
+function handleMobileDragMove(event) {
+  if (mobileLongPress?.pointerId === event.pointerId) {
+    const driftX = Math.abs(event.clientX - mobileLongPress.startX);
+    const driftY = Math.abs(event.clientY - mobileLongPress.startY);
+    if (driftX > MOBILE_DRAG_START_DISTANCE_PX || driftY > MOBILE_DRAG_START_DISTANCE_PX) {
+      cancelMobileLongPress(event.pointerId);
+    }
+  }
+
+  if (!mobileDragState || mobileDragState.pointerId !== event.pointerId) {
+    return;
+  }
+
+  event.preventDefault();
+  mobileDragState.lastClientX = event.clientX;
+  mobileDragState.lastClientY = event.clientY;
+  if (!mobileDragState.active) {
+    mobileDragState.active = true;
+    mobileDragState.item.classList.remove('long-press-armed');
+    mobileDragState.item.classList.add('dragging');
+  }
+
+  const dropTarget = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-id]');
+  if (dropTarget && dropTarget.dataset.id && dropTarget.dataset.id !== mobileDragState.tabId) {
+    const rect = dropTarget.getBoundingClientRect();
+    dragState.targetId = dropTarget.dataset.id;
+    dragState.after = event.clientY >= rect.top + (rect.height / 2);
+    refreshDropIndicators();
+    return;
+  }
+
+  if (!ui.mobileTabList.contains(event.target)) {
+    return;
+  }
+
+  const targetId = tabs.at(-1)?.id;
+  if (targetId) {
+    dragState.targetId = targetId;
+    dragState.after = true;
+    refreshDropIndicators();
+  }
+}
+
+function finalizeMobileDrag(pointerId) {
+  if (!mobileDragState || mobileDragState.pointerId !== pointerId) {
+    return;
+  }
+
+  const targetId = dragState?.targetId;
+  const insertAfter = dragState?.after ?? false;
+  const movingId = mobileDragState.tabId;
+  const shouldDrop = mobileDragState.active && targetId && targetId !== movingId;
+  clearDropState();
+  mobileDragState = null;
+  if (shouldDrop) {
+    void reorderTabs(movingId, targetId, insertAfter);
+  }
+}
+
+function cancelMobileDrag(pointerId) {
+  if (!mobileDragState || mobileDragState.pointerId !== pointerId) {
+    return;
+  }
+
+  clearDropState();
+  mobileDragState = null;
+}
+
+function isMobileViewport() {
+  return window.matchMedia('(max-width: ' + MOBILE_BREAKPOINT_PX + 'px)').matches;
+}
+
+function isEditorSwipeRegion(target) {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+
+  return Boolean(target.closest('.editor-shell, .editor-host, .cm-editor, .cm-scroller, .cm-content'));
 }
 
 async function reorderTabs(movingId, targetId, insertAfter) {

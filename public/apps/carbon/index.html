@@ -326,7 +326,7 @@
 
     .new-tab-button {
       padding: 0 10px;
-      margin-bottom: 7px;
+      margin-bottom: 5px;
       font-size: 0.84rem;
       border-radius: 9px;
       background: var(--panel);
@@ -419,6 +419,11 @@
       opacity: 0.55;
     }
 
+    .tab-list-item.long-press-armed {
+      background: rgba(102, 217, 239, 0.16);
+      border-color: rgba(102, 217, 239, 0.28);
+    }
+
     .tab-list-item .tab-main {
       padding: 4px 10px;
       min-height: 20px;
@@ -439,12 +444,22 @@
     }
 
     @media (max-width: 720px) {
+      body {
+        overscroll-behavior-x: contain;
+      }
+
       .menu-button {
         display: inline-flex;
       }
 
       .toolbar-tabstrip {
         display: none;
+      }
+
+      .mobile-sidebar,
+      .tab-list,
+      .tab-list-item {
+        touch-action: pan-y;
       }
 
       .sidebar-backdrop {
