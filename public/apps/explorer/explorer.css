@@ -185,6 +185,22 @@ button {
   display: none;
 }
 
+.operations-menu-button {
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.operations-menu-button__caret {
+  font-size: 0.72rem;
+  transition: transform 140ms ease;
+}
+
+.operations-menu-button[aria-expanded="true"] .operations-menu-button__caret {
+  transform: rotate(180deg);
+}
+
 .toolbar-button,
 .view-button {
   border: 1px solid transparent;
@@ -597,10 +613,6 @@ button {
   flex-wrap: nowrap;
 }
 
-#clear-selection-button {
-  flex: none;
-}
-
 .content-view {
   padding: 8px;
 }
@@ -862,6 +874,10 @@ button {
   gap: 2px;
 }
 
+.action-menu--dropdown {
+  border-radius: 10px;
+}
+
 .action-menu-button {
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr);
@@ -1093,7 +1109,9 @@ button {
   }
 
   .toolbar-button.operations-menu-button {
-    display: inline-grid;
+    display: inline-flex;
+    min-width: auto;
+    padding: 0 10px;
   }
 
   .content-actions-divider {

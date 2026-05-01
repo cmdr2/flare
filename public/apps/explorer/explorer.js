@@ -217,7 +217,6 @@ const elements = {
   cutSelectionButton: document.getElementById('cut-selection-button'),
   copySelectionButton: document.getElementById('copy-selection-button'),
   pasteClipboardButton: document.getElementById('paste-clipboard-button'),
-  clearSelectionButton: document.getElementById('clear-selection-button'),
   renameSelectionButton: document.getElementById('rename-selection-button'),
   pinSelectionButton: document.getElementById('pin-selection-button'),
   unpinSelectionButton: document.getElementById('unpin-selection-button'),
@@ -300,7 +299,6 @@ function bindEvents() {
   elements.deleteSelectionButton.addEventListener('click', () => {
     void deleteSelectedItems();
   });
-  elements.clearSelectionButton.addEventListener('click', () => clearSelection());
   elements.operationsMenuButton.addEventListener('click', (event) => {
     event.stopPropagation();
     toggleToolbarActionsMenu(elements.operationsMenuButton);
@@ -1503,8 +1501,7 @@ function bindEntryInteractions(node, entry, { mobileTreeTapMode = 'open' } = {})
       selectedPaths: state.selectedPaths.has(entry.path) ? Array.from(state.selectedPaths) : [entry.path],
       targetPath: entry.type === 'directory' ? entry.path : state.currentFolder,
       allowPinPath: entry.type === 'directory' ? entry.path : '',
-      includeNewItems: true,
-      includeClearSelection: false
+      includeNewItems: true
     }));
   });
 }
@@ -1599,13 +1596,11 @@ function renderSelectionAction() {
   const canRename = Boolean(selectedPath && selectedPath !== '/');
   const canPin = Boolean(selectedPath && isSelectedDirectory(selectedPath));
   const isPinnedFolder = Boolean(selectedPath && state.favorites.includes(selectedPath));
-  const label = selectedCount > 1 ? 'Clear ' + selectedCount + ' selected items' : 'Clear selection';
   const deleteLabel = selectedCount > 1 ? 'Delete ' + selectedCount + ' selected items' : 'Delete selected item';
   const renameLabel = canRename ? 'Rename ' + baseName(selectedPath) : 'Rename selected item';
   const pinLabel = canPin ? (isPinnedFolder ? 'Pinned: ' + baseName(selectedPath) : 'Pin ' + baseName(selectedPath)) : 'Pin selected folder';
   const unpinLabel = canPin ? 'Unpin ' + baseName(selectedPath) : 'Unpin selected folder';
   const pasteLabel = hasClipboard ? 'Paste into ' + state.currentFolder : 'Paste into current folder';
-  const showClearSelection = selectedCount > 0;
   const showSecondarySurface = canCutCopy || hasClipboard || canRename || canPin || selectedCount > 0;
   setActionVisibility(elements.cutSelectionButton, canCutCopy);
   setActionVisibility(elements.copySelectionButton, canCutCopy);
@@ -1614,7 +1609,6 @@ function renderSelectionAction() {
   setActionVisibility(elements.pinSelectionButton, canPin);
   setActionVisibility(elements.unpinSelectionButton, canPin && isPinnedFolder);
   setActionVisibility(elements.deleteSelectionButton, selectedCount > 0);
-  setActionVisibility(elements.clearSelectionButton, showClearSelection);
   elements.pasteClipboardButton.disabled = !hasClipboard;
   elements.pasteClipboardButton.setAttribute('aria-label', pasteLabel);
   elements.pasteClipboardButton.title = pasteLabel;
@@ -1627,11 +1621,9 @@ function renderSelectionAction() {
   elements.pinSelectionButton.classList.toggle('is-active', isPinnedFolder);
   elements.unpinSelectionButton.setAttribute('aria-label', unpinLabel);
   elements.unpinSelectionButton.title = unpinLabel;
-  elements.clearSelectionButton.setAttribute('aria-label', label);
-  elements.clearSelectionButton.title = label;
   elements.deleteSelectionButton.setAttribute('aria-label', deleteLabel);
   elements.deleteSelectionButton.title = deleteLabel;
-  elements.contentActionsDivider.hidden = !(showClearSelection || showSecondarySurface);
+  elements.contentActionsDivider.hidden = !showSecondarySurface;
   elements.contentActionsSecondary.hidden = !showSecondarySurface;
   elements.operationsMenuButton.hidden = !showSecondarySurface;
 }
@@ -1676,7 +1668,6 @@ function createSidebarPlaceButton(place) {
       targetPath: place.path,
       allowPinPath: place.path,
       includeNewItems: true,
-      includeClearSelection: false,
       includeSelectionActions: false
     }));
   });
@@ -1720,7 +1711,6 @@ function createFavoriteRow(path) {
       targetPath: path,
       allowPinPath: path,
       includeNewItems: true,
-      includeClearSelection: false,
       includeSelectionActions: false
     }));
   });
@@ -2069,7 +2059,6 @@ function buildActionMenuItems({
   targetPath = state.currentFolder,
   allowPinPath = '',
   includeNewItems = false,
-  includeClearSelection = false,
   includeSelectionActions = true
 } = {}) {
   const items = [];
@@ -2107,10 +2096,6 @@ function buildActionMenuItems({
     items.push({ label: 'Delete', icon: 'fa-trash', danger: true, action: () => deleteSelectedItems(selectionTargets) });
   }
 
-  if (includeClearSelection && state.selectedPaths.size > 0) {
-    items.push({ label: 'Clear selection', icon: 'fa-border-none', action: () => clearSelection() });
-  }
-
   if (includeNewItems) {
     items.push({ type: 'divider' });
     items.push({ label: 'New file', icon: 'fa-file-circle-plus', action: () => openCreateDialog('file', targetPath) });
@@ -2140,7 +2125,6 @@ function toggleToolbarActionsMenu(button) {
   openActionMenuNearElement(button, buildActionMenuItems({
     selectedPaths: Array.from(state.selectedPaths),
     targetPath: state.currentFolder,
-    includeClearSelection: true,
     includeSelectionActions: true
   }), 'toolbar');
 }
@@ -2162,6 +2146,7 @@ function renderActionMenu(items) {
     button.type = 'button';
     button.className = 'action-menu-button' + (item.danger ? ' action-menu-button--danger' : '');
     button.disabled = Boolean(item.disabled);
+    button.setAttribute('role', 'menuitem');
     button.append(createFaIcon(item.icon), document.createTextNode(item.label));
     button.addEventListener('click', () => {
       closeActionMenu();
@@ -2190,6 +2175,8 @@ function openActionMenuAtPoint(x, y, items, mode = 'context') {
     return;
   }
   elements.actionMenu.dataset.mode = mode;
+  elements.actionMenu.classList.toggle('action-menu--dropdown', mode === 'toolbar');
+  elements.operationsMenuButton.setAttribute('aria-expanded', String(mode === 'toolbar'));
   positionActionMenu(x, y);
 }
 
@@ -2199,7 +2186,10 @@ function openActionMenuNearElement(element, items, mode = 'toolbar') {
   }
   const rect = element.getBoundingClientRect();
   elements.actionMenu.dataset.mode = mode;
-  positionActionMenu(rect.right - elements.actionMenu.offsetWidth, rect.bottom + 6);
+  elements.actionMenu.classList.toggle('action-menu--dropdown', mode === 'toolbar');
+  elements.actionMenu.style.minWidth = rect.width + 'px';
+  elements.operationsMenuButton.setAttribute('aria-expanded', String(mode === 'toolbar'));
+  positionActionMenu(rect.left, rect.bottom + 4);
 }
 
 function closeActionMenu() {
@@ -2208,6 +2198,9 @@ function closeActionMenu() {
   }
   elements.actionMenu.hidden = true;
   elements.actionMenu.replaceChildren();
+  elements.actionMenu.classList.remove('action-menu--dropdown');
+  elements.actionMenu.style.minWidth = '';
+  elements.operationsMenuButton.setAttribute('aria-expanded', 'false');
   delete elements.actionMenu.dataset.mode;
 }
 
@@ -2240,7 +2233,6 @@ function handleContentContextMenu(event) {
   openActionMenuAtPoint(event.clientX, event.clientY, buildContextMenuItems({
     targetPath: state.currentFolder,
     includeNewItems: true,
-    includeClearSelection: false,
     includeSelectionActions: false
   }));
 }
