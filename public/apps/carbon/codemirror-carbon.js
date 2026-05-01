@@ -43,11 +43,11 @@ const carbonTheme = EditorView.theme({
     minHeight: '100%'
   },
   '.cm-content': {
-    padding: '20px 0 56px',
+    padding: '8px 0 56px',
     caretColor: '#f8f8f0'
   },
   '.cm-line': {
-    padding: '0 20px'
+    padding: '0 12px'
   },
   '.cm-gutters': {
     border: 'none',
@@ -59,7 +59,7 @@ const carbonTheme = EditorView.theme({
     color: '#cfcfc2'
   },
   '.cm-activeLine': {
-    backgroundColor: 'rgba(255, 255, 255, 0.04)'
+    backgroundColor: 'transparent'
   },
   '.cm-selectionBackground, &.cm-focused .cm-selectionBackground, ::selection': {
     backgroundColor: 'rgba(73, 72, 62, 0.95)'
