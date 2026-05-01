@@ -206,6 +206,7 @@ const FILE_TYPE_LABELS = {
 const elements = {
   addressForm: document.getElementById('address-form'),
   addressInput: document.getElementById('address-input'),
+  contentShell: document.querySelector('.content-shell'),
   contentView: document.getElementById('content-view'),
   selectionSummary: document.getElementById('selection-summary'),
   statusMessage: document.getElementById('status-message'),
@@ -309,7 +310,7 @@ function bindEvents() {
     });
   }
 
-  elements.contentView.addEventListener('click', handleBackgroundClick);
+  elements.contentShell.addEventListener('click', handleBackgroundClick);
   elements.contentView.addEventListener('contextmenu', handleContentContextMenu);
   bindFavoritesDropzone();
 
@@ -1452,6 +1453,12 @@ function handleMobileEntryClick(event, entry, { treeTapMode = 'open' } = {}) {
   }
 
   if (treeTapMode === 'toggle' && entry.type === 'directory') {
+    if (state.selectedPaths.size > 0) {
+      clearLastTouchTreeTap();
+      toggleSelection(entry.path);
+      return;
+    }
+
     const now = Date.now();
     const isDoubleTap = state.lastTouchTreeTapPath === entry.path && now - state.lastTouchTreeTapAt <= MOBILE_DOUBLE_TAP_MS;
     if (isDoubleTap) {
@@ -1462,7 +1469,7 @@ function handleMobileEntryClick(event, entry, { treeTapMode = 'open' } = {}) {
 
     state.lastTouchTreeTapPath = entry.path;
     state.lastTouchTreeTapAt = now;
-    selectPath(entry.path);
+    clearSelection();
     toggleExpandedFolder(entry.path);
     void rerenderTreeViews();
     return;
@@ -1562,7 +1569,7 @@ function setActionVisibility(element, visible) {
 }
 
 function handleBackgroundClick(event) {
-  if (isTouchClick(event)) {
+  if (event.target.closest('.content-header')) {
     return;
   }
 
@@ -1570,6 +1577,7 @@ function handleBackgroundClick(event) {
     return;
   }
 
+  clearLastTouchTreeTap();
   clearSelection();
 }
 
