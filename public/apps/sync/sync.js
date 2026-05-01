@@ -213,67 +213,86 @@ function getSyncTasks(localNew, remoteNew, localOld, remoteOld) {
     const tasks = { upload: {}, download: {}, localDelete: {}, remoteDelete: {}, error: false };
 
     if (!localNew || !remoteNew || !localOld || !remoteOld) {
-        logSyncWarn('tasks:missing-input', {
-            localNew: Boolean(localNew),
-            remoteNew: Boolean(remoteNew),
-            localOld: Boolean(localOld),
-            remoteOld: Boolean(remoteOld)
-        });
         return tasks;
     }
 
+    const isRemoteTrulyEmpty =
+        Object.keys(remoteNew).length === 0 &&
+        Object.keys(remoteOld).length === 0;
+
+    // --- UPLOAD ---
     for (const filePath in localNew) {
-        if (localNew[filePath] !== localOld[filePath] && remoteNew[filePath] === undefined && remoteOld[filePath] === undefined) {
+
+        // If remote had file but deleted it → remote wins (no upload)
+        if (remoteOld[filePath] !== undefined && remoteNew[filePath] === undefined) {
+            continue;
+        }
+
+        // First sync case: remote never had files
+        if (isRemoteTrulyEmpty) {
             tasks.upload[filePath] = 1;
-            logTaskDecision('upload', filePath, 'selected', 'local changed and remote is missing', localNew, remoteNew, localOld, remoteOld);
-        } else if (remoteNew[filePath] === undefined && remoteOld[filePath] === undefined) {
+            continue;
+        }
+
+        // Local new file, never existed remotely
+        if (
+            localNew[filePath] !== localOld[filePath] &&
+            remoteNew[filePath] === undefined &&
+            remoteOld[filePath] === undefined
+        ) {
             tasks.upload[filePath] = 1;
-            logTaskDecision('upload', filePath, 'selected', 'remote missing in current and previous index', localNew, remoteNew, localOld, remoteOld);
-        } else if (localNew[filePath] !== remoteNew[filePath] && remoteNew[filePath] === remoteOld[filePath] && remoteNew[filePath] !== undefined) {
+        }
+
+        // Remote missing both frames
+        else if (
+            remoteNew[filePath] === undefined &&
+            remoteOld[filePath] === undefined
+        ) {
             tasks.upload[filePath] = 1;
-            logTaskDecision('upload', filePath, 'selected', 'local differs while remote stayed unchanged', localNew, remoteNew, localOld, remoteOld);
-        } else if (localNew[filePath] !== remoteNew[filePath]) {
-            logTaskDecision('upload', filePath, 'skipped', 'upload skipped due to inconsistent hash conditions', localNew, remoteNew, localOld, remoteOld);
+        }
+
+        // Local changed, remote unchanged
+        else if (
+            localNew[filePath] !== remoteNew[filePath] &&
+            remoteNew[filePath] === remoteOld[filePath] &&
+            remoteNew[filePath] !== undefined
+        ) {
+            tasks.upload[filePath] = 1;
         }
     }
 
+    // --- REMOTE DELETE ---
     for (const filePath in localOld) {
-        if (localNew[filePath] === undefined && remoteNew[filePath] === remoteOld[filePath] && remoteNew[filePath] !== undefined) {
+        if (
+            localNew[filePath] === undefined &&
+            remoteNew[filePath] === remoteOld[filePath] &&
+            remoteNew[filePath] !== undefined
+        ) {
             tasks.remoteDelete[filePath] = 1;
-            logTaskDecision('remote-delete', filePath, 'selected', 'local file deleted since last sync', localNew, remoteNew, localOld, remoteOld);
         }
     }
 
+    // --- LOCAL DELETE ---
     for (const filePath in remoteOld) {
         if (remoteNew[filePath] === undefined) {
             tasks.localDelete[filePath] = 1;
-            logTaskDecision('local-delete', filePath, 'selected', 'remote file deleted since last sync', localNew, remoteNew, localOld, remoteOld);
         }
     }
 
+    // --- DOWNLOAD (reference logic) ---
     for (const filePath in remoteNew) {
-        if (localNew[filePath] === undefined && localOld[filePath] === undefined) {
+        if (
+            remoteOld[filePath] !== remoteNew[filePath] &&
+            localNew[filePath] !== remoteNew[filePath]
+        ) {
             tasks.download[filePath] = 1;
-            logTaskDecision('download', filePath, 'selected', 'local file is missing and never synced before', localNew, remoteNew, localOld, remoteOld);
-        } else if (remoteOld[filePath] !== remoteNew[filePath] && localNew[filePath] !== remoteNew[filePath]) {
-            tasks.download[filePath] = 1;
-            logTaskDecision('download', filePath, 'selected', 'remote changed and local differs', localNew, remoteNew, localOld, remoteOld);
-        } else if (localNew[filePath] !== remoteNew[filePath]) {
-            logTaskDecision('download', filePath, 'skipped', 'download skipped due to inconsistent hash conditions', localNew, remoteNew, localOld, remoteOld);
         }
     }
 
+    // --- CONFLICT RESOLUTION ---
     for (const filePath in tasks.upload) {
         if (tasks.download[filePath] !== undefined) {
             tasks.error = true;
-            logSyncWarn('task-conflict', {
-                path: filePath,
-                reason: 'download dropped because upload also matched',
-                local: formatHash(localNew[filePath]),
-                remote: formatHash(remoteNew[filePath]),
-                localOld: formatHash(localOld[filePath]),
-                remoteOld: formatHash(remoteOld[filePath])
-            });
             delete tasks.download[filePath];
         }
     }
@@ -340,6 +359,95 @@ async function runSyncTasks(tasks, remoteStorage, local, remote, requestId, onPr
         logSyncDebug('run:skip-remote-delete', { requestId, count: 0 });
     }
 }
+
+function runSyncTests() {
+    const tests = [
+        ["both empty", ";", ";", ";;;"],
+        ["no changes", "A:0,B:0;A:0,B:0", "A:0,B:0;A:0,B:0", ";;;"],
+
+        ["local new → upload", ";", "A:0;", "A;;;"],
+        ["remote new → download", ";", ";B:0", ";B;;"],
+        ["both new", ";", "A:0;B:0", "A;B;;"],
+
+        ["local changed → upload", "A:0;A:0", "A:1;A:0", "A;;;"],
+        ["remote changed → download", "A:0;A:0", "A:0;A:1", ";A;;"],
+
+        ["local deleted → remote delete", "A:0;A:0", ";A:0", ";;;A"],
+        ["local deleted but remote changed → download", "A:0;A:0", ";A:1", ";A;;"],
+
+        ["local changed but remote deleted → local delete", "A:0;A:0", "A:1;", ";;A;"],
+        ["both changed → download", "A:0;A:0", "A:1;A:2", ";A;;"],
+
+        ["first boot: remote only", ";", ";A:0,B:0", ";A,B;;"],
+
+        ["remote never had files → upload all", ";", "A:0,B:0;", "A,B;;;"],
+        ["remote deleted everything → local delete all", ";A:0,B:0", "A:0,B:0;", ";;A,B;"],
+    ];
+
+    function parse(frame) {
+        const map = {};
+        if (!frame) return map;
+
+        for (const part of frame.split(",")) {
+            if (!part) continue;
+            const [k, v] = part.split(":");
+            map[k] = v;
+        }
+        return map;
+    }
+
+    function check(expected, actual) {
+        const [u, d, ld, rd] = expected.split(";");
+
+        const match = (listStr, obj) => {
+            const list = listStr ? listStr.split(",").filter(Boolean) : [];
+            const keys = Object.keys(obj);
+            return (
+                list.every(x => keys.includes(x)) &&
+                keys.every(x => list.includes(x))
+            );
+        };
+
+        return (
+            match(u, actual.upload) &&
+            match(d, actual.download) &&
+            match(ld, actual.localDelete) &&
+            match(rd, actual.remoteDelete) &&
+            !actual.error
+        );
+    }
+
+    let allPassed = true;
+
+    for (const [name, oldFrame, newFrame, expected] of tests) {
+        const [localOldStr, remoteOldStr] = oldFrame.split(";");
+        const [localNewStr, remoteNewStr] = newFrame.split(";");
+
+        const tasks = getSyncTasks(
+            parse(localNewStr),
+            parse(remoteNewStr),
+            parse(localOldStr),
+            parse(remoteOldStr)
+        );
+
+        const pass = check(expected, tasks);
+        allPassed &= pass;
+
+        console.log(`[sync:test] ${pass ? "OK" : "FAIL"} - ${name}`);
+        if (!pass) {
+            console.log(" expected:", expected);
+            console.log(" actual:", tasks);
+        }
+    }
+
+    if (!allPassed) {
+        throw new Error("Sync tests failed");
+    }
+
+    console.log("[sync:test] all tests passed");
+}
+
+runSyncTests();
 
 function logSyncEntries(phase, paths, local, remote, requestId, onProgress) {
     for (const [index, path] of paths.entries()) {
