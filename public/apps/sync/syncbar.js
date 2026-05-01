@@ -175,6 +175,10 @@ function mountSyncBar() {
         text-decoration: none;
     }
 
+    .flare-sync-link[hidden] {
+        display: none;
+    }
+
     .flare-sync-link:hover {
         color: #ffe0a8;
     }
@@ -366,7 +370,7 @@ function handleSyncStatus(status) {
         console.log('[syncbar]', 'status resolved to local dirty override', { status });
         setStatus('needs-sync');
         setSyncEnabled(syncReady && !isSyncing);
-        showSetupLink(status === 'setup-needed' || status === 'error');
+        showSetupLink(false);
         return;
     }
 
@@ -398,7 +402,7 @@ function handleSyncStatus(status) {
         console.warn('[syncbar]', 'status branch', { status });
         setStatus('error');
         setSyncEnabled(false);
-        showSetupLink(true);
+        showSetupLink(false);
         return;
     }
 

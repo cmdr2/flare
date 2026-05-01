@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v0.5.0';
+const CACHE_VERSION = 'v0.6.0';
 const CACHE_NAME = 'flare-shell-' + CACHE_VERSION;
 const APP_SHELLS = {
     '/public/apps/explorer/': '/public/apps/explorer/index.html',
@@ -33,6 +33,7 @@ const PRECACHE_URLS = [
     '/public/apps/carbon/icon.svg',
     '/public/apps/carbon/carbon.js',
     '/public/apps/carbon/codemirror-carbon.js',
+    '/public/libs/codemirror.js',
     '/public/apps/sync/',
     '/public/apps/sync/index.html',
     '/public/apps/sync/manifest.webmanifest',

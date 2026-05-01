@@ -16,6 +16,7 @@
       --sync-bar-height: 42px;
       --toolbar-height: 50px;
       --tab-height: 42px;
+      --statusbar-height: 30px;
       --border-color: rgba(255, 255, 255, 0.08);
       --shadow-color: rgba(0, 0, 0, 0.35);
       --panel: #23241f;
@@ -68,30 +69,25 @@
     .toolbar {
       height: var(--toolbar-height);
       display: flex;
-      align-items: center;
+      align-items: flex-end;
       gap: 10px;
-      padding: 0 12px;
-      border-bottom: 1px solid var(--border-color);
+      padding: 8px 10px 0 12px;
       background: linear-gradient(180deg, rgba(48, 50, 43, 0.98) 0%, rgba(35, 36, 31, 0.98) 100%);
       box-shadow: 0 10px 24px -20px var(--shadow-color);
       flex-shrink: 0;
     }
 
-    .toolbar-status {
-      min-width: 0;
-      color: var(--text-muted);
-      font-size: 0.82rem;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .toolbar-spacer {
+    .toolbar-tabstrip {
       flex: 1;
+      min-width: 0;
+      height: 100%;
+      display: flex;
+      align-items: flex-end;
+      overflow: hidden;
     }
 
     .toolbar-button {
-      height: 34px;
+      height: 32px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -121,20 +117,21 @@
       width: 36px;
       padding: 0;
       font-size: 1rem;
+      margin-bottom: 7px;
     }
 
     .tab-strip {
-      height: var(--tab-height);
+      height: 100%;
       display: flex;
-      align-items: stretch;
+      align-items: flex-end;
       gap: 1px;
-      padding: 0 8px;
+      padding: 0 4px;
       overflow-x: auto;
       overflow-y: hidden;
-      border-bottom: 1px solid var(--border-color);
-      background: #1f201c;
+      background: transparent;
       scrollbar-width: none;
-      flex-shrink: 0;
+      flex: 1;
+      min-width: 0;
     }
 
     .tab-strip::-webkit-scrollbar {
@@ -144,8 +141,8 @@
     .tab-card {
       min-width: 0;
       max-width: min(260px, 42vw);
-      height: calc(var(--tab-height) - 2px);
-      margin-top: 1px;
+      height: var(--tab-height);
+      margin-bottom: -1px;
       display: flex;
       align-items: center;
       gap: 4px;
@@ -248,10 +245,14 @@
       min-width: 0;
       background: #272822;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      border-top: 1px solid var(--border-color);
     }
 
     .editor-host {
-      height: 100%;
+      flex: 1;
+      min-height: 0;
     }
 
     .cm-editor {
@@ -265,6 +266,75 @@
 
     .cm-content {
       padding-right: 24px;
+    }
+
+    .statusbar {
+      height: var(--statusbar-height);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 12px;
+      border-top: 1px solid var(--border-color);
+      background: rgba(24, 25, 22, 0.95);
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .status-text {
+      min-width: 0;
+      font-size: 0.78rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .syntax-picker {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      color: var(--text-strong);
+      flex: 0 0 auto;
+    }
+
+    .syntax-picker::after {
+      content: "▾";
+      position: absolute;
+      right: 0;
+      font-size: 0.72rem;
+      pointer-events: none;
+    }
+
+    .syntax-select {
+      appearance: none;
+      border: 0px;
+      background: rgba(255, 255, 255, 0.0);
+      color: inherit;
+      font: inherit;
+      font-size: 0.78rem;
+      line-height: 1.2;
+      padding: 5px 24px 5px 10px;
+      cursor: pointer;
+    }
+
+    .syntax-select:hover,
+    .syntax-select:focus-visible {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.16);
+      outline: none;
+    }
+
+    .syntax-select option {
+      background: var(--panel);
+      color: var(--text-strong);
+    }
+
+    .new-tab-button {
+      height: 30px;
+      padding: 0 10px;
+      margin-bottom: 7px;
+      font-size: 0.84rem;
+      border-radius: 9px;
     }
 
     .sidebar-backdrop {
@@ -378,7 +448,7 @@
         display: inline-flex;
       }
 
-      .tab-strip {
+      .toolbar-tabstrip {
         display: none;
       }
 
@@ -388,11 +458,7 @@
 
       .toolbar {
         gap: 8px;
-        padding: 0 10px;
-      }
-
-      .toolbar-status {
-        font-size: 0.78rem;
+        padding: 8px 10px 0;
       }
 
       .toolbar-button.new-tab-button {
@@ -416,13 +482,28 @@
     <div class="workspace">
       <header class="toolbar">
         <button id="menu-button" class="toolbar-button menu-button" type="button" aria-label="Open tab menu">☰</button>
-        <div class="toolbar-status" id="toolbar-status">Loading tabs...</div>
-        <div class="toolbar-spacer"></div>
+        <div class="toolbar-tabstrip">
+          <nav class="tab-strip" id="desktop-tab-strip" aria-label="Open tabs"></nav>
+        </div>
         <button id="new-tab-button" class="toolbar-button new-tab-button" type="button">+ New tab</button>
       </header>
-      <nav class="tab-strip" id="desktop-tab-strip" aria-label="Open tabs"></nav>
       <main class="editor-shell">
         <div id="editor-host" class="editor-host"></div>
+        <div class="statusbar">
+          <div id="status-text" class="status-text">Loading tabs...</div>
+          <label class="syntax-picker" aria-label="Syntax highlighting">
+            <select id="syntax-select" class="syntax-select">
+              <option value="plaintext">Plain Text</option>
+              <option value="html">HTML</option>
+              <option value="css">CSS</option>
+              <option value="javascript">JS</option>
+              <option value="markdown">Markdown</option>
+              <option value="python">Python</option>
+              <option value="cpp">C++</option>
+              <option value="yaml">YAML</option>
+            </select>
+          </label>
+        </div>
       </main>
     </div>
   </div>

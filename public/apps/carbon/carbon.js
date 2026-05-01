@@ -1,6 +1,10 @@
 import { registerPwa } from '/public/libs/flare/pwa.js';
 import { fs } from '/public/libs/flare/fs.js';
-import { createCarbonEditor } from '/public/apps/carbon/codemirror-carbon.js';
+import {
+  CARBON_LANGUAGE_OPTIONS,
+  DEFAULT_CARBON_LANGUAGE,
+  createCarbonEditor
+} from '/public/apps/carbon/codemirror-carbon.js';
 
 registerPwa('carbon');
 
@@ -10,12 +14,15 @@ const STATE_PATH = STORAGE_ROOT + '/state.json';
 const AUTOSAVE_DELAY_MS = 450;
 const EMPTY_TITLE = 'Untitled';
 const FILE_EXTENSION = '.txt';
+const STATE_VERSION = 1;
+const LANGUAGE_IDS = new Set(CARBON_LANGUAGE_OPTIONS.map((option) => option.id));
 
 const ui = {
   desktopTabStrip: document.getElementById('desktop-tab-strip'),
   mobileTabList: document.getElementById('mobile-tab-list'),
   editorHost: document.getElementById('editor-host'),
-  toolbarStatus: document.getElementById('toolbar-status'),
+  statusText: document.getElementById('status-text'),
+  syntaxSelect: document.getElementById('syntax-select'),
   newTabButton: document.getElementById('new-tab-button'),
   menuButton: document.getElementById('menu-button'),
   sidebarBackdrop: document.getElementById('sidebar-backdrop'),
@@ -25,7 +32,7 @@ const ui = {
 
 let tabs = [];
 let activeTabId = null;
-let editorView = null;
+let editorSession = null;
 let pendingSave = null;
 let isSidebarOpen = false;
 let dragState = null;
@@ -41,11 +48,11 @@ ui.sidebarBackdrop.addEventListener('click', (event) => {
     setSidebarOpen(false);
   }
 });
-document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && isSidebarOpen) {
-    setSidebarOpen(false);
-  }
+ui.syntaxSelect.addEventListener('change', () => {
+  void updateActiveTabLanguage(ui.syntaxSelect.value);
 });
+
+document.addEventListener('keydown', handleDocumentKeydown, true);
 window.addEventListener('resize', syncLayoutOffset);
 window.addEventListener('pagehide', () => {
   void flushPendingSave({ silent: true });
@@ -61,26 +68,31 @@ await initialize();
 async function initialize() {
   syncLayoutOffset();
   observeSyncBar();
-  bindPointerDropTargets(ui.desktopTabStrip, 'horizontal');
-  bindPointerDropTargets(ui.mobileTabList, 'vertical');
+  bindPointerDropTargets(ui.desktopTabStrip);
+  bindPointerDropTargets(ui.mobileTabList);
   await ensureDir(TABS_DIR);
   tabs = await loadTabs();
 
   if (tabs.length === 0) {
     await createTab({ activate: true, index: 0 });
-  } else {
-    activeTabId = pickInitialActiveTab();
-    render();
-    mountEditorForActiveTab();
-    updateStatus('All changes saved');
+    updateStatus('Ready');
+    return;
   }
+
+  activeTabId = pickInitialActiveTab();
+  render();
+  mountEditorForActiveTab();
+  updateStatus('All changes saved');
 }
 
 async function loadTabs() {
-  const [{ order = [], activeId = null } = {}, fileEntries = []] = await Promise.all([
+  const [state = {}, fileEntries = []] = await Promise.all([
     readState(),
     listTabFiles()
   ]);
+  const order = Array.isArray(state.order) ? state.order : [];
+  const activeId = typeof state.activeId === 'string' ? state.activeId : null;
+  const tabState = state.tabs && typeof state.tabs === 'object' ? state.tabs : {};
   const knownIds = new Set();
   const orderedIds = [];
 
@@ -103,7 +115,9 @@ async function loadTabs() {
     try {
       loadedTabs.push({
         id,
-        content: await fs.promises.readFile(tabPath(id), { encoding: 'utf8' })
+        content: await fs.promises.readFile(tabPath(id), { encoding: 'utf8' }),
+        language: normalizeLanguageId(tabState[id]?.language),
+        persisted: true
       });
     } catch {
     }
@@ -120,6 +134,7 @@ function pickInitialActiveTab() {
   if (activeTabId && tabs.some((tab) => tab.id === activeTabId)) {
     return activeTabId;
   }
+
   return tabs[0]?.id || null;
 }
 
@@ -128,29 +143,20 @@ async function createTabAtCurrentPosition() {
   const currentIndex = tabs.findIndex((tab) => tab.id === activeTabId);
   const nextIndex = currentIndex === -1 ? tabs.length : currentIndex + 1;
   await createTab({ activate: true, index: nextIndex });
+  updateStatus('Ready');
 }
 
 async function createTab({ activate = true, index = tabs.length } = {}) {
-  const id = crypto.randomUUID();
-  const tab = { id, content: '' };
+  const tab = {
+    id: crypto.randomUUID(),
+    content: '',
+    language: DEFAULT_CARBON_LANGUAGE,
+    persisted: false
+  };
   tabs.splice(index, 0, tab);
-  activeTabId = activate ? id : activeTabId || id;
-
-  try {
-    await fs.promises.writeFile(tabPath(id), tab.content);
-    await writeState();
-  } catch (error) {
-    tabs = tabs.filter((candidate) => candidate.id !== id);
-    activeTabId = tabs[0]?.id || null;
-    updateStatus('Could not create a new tab: ' + error.message);
-    render();
-    mountEditorForActiveTab();
-    return null;
-  }
-
+  activeTabId = activate ? tab.id : activeTabId || tab.id;
   render();
   mountEditorForActiveTab();
-  updateStatus('All changes saved');
   return tab;
 }
 
@@ -165,7 +171,7 @@ async function selectTab(id) {
   render();
   mountEditorForActiveTab();
   setSidebarOpen(false);
-  updateStatus('All changes saved');
+  updateStatus(getIdleStatusForActiveTab());
 }
 
 async function closeTab(id) {
@@ -191,22 +197,25 @@ async function closeTab(id) {
     activeTabId = tabs[index]?.id || tabs[index - 1]?.id || null;
   }
 
-  try {
-    await fs.promises.unlink(tabPath(id));
-  } catch (error) {
-    if (error?.code !== 'ENOENT') {
-      tabs.splice(index, 0, tab);
-      activeTabId = id;
-      render();
-      mountEditorForActiveTab();
-      updateStatus('Could not close tab: ' + error.message);
-      return;
+  if (tab.persisted) {
+    try {
+      await fs.promises.unlink(tabPath(id));
+    } catch (error) {
+      if (error?.code !== 'ENOENT') {
+        tabs.splice(index, 0, tab);
+        activeTabId = id;
+        render();
+        mountEditorForActiveTab();
+        updateStatus('Could not close tab: ' + error.message);
+        return;
+      }
     }
   }
 
   if (tabs.length === 0) {
+    await writeState();
     await createTab({ activate: true, index: 0 });
-    updateStatus('Opened a fresh tab');
+    updateStatus('Ready');
     return;
   }
 
@@ -220,7 +229,7 @@ async function closeTab(id) {
 function render() {
   renderTabCollection(ui.desktopTabStrip, 'horizontal');
   renderTabCollection(ui.mobileTabList, 'vertical');
-  updateToolbarText();
+  updateStatusBar();
 }
 
 function renderTabCollection(container, axis) {
@@ -237,7 +246,7 @@ function createTabNode(tab, axis) {
   }
 
   item.addEventListener('dragstart', (event) => {
-    dragState = { id: tab.id, axis, targetId: null, after: false };
+    dragState = { id: tab.id, targetId: null, after: false };
     item.classList.add('dragging');
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', tab.id);
@@ -292,12 +301,10 @@ function handleDragOver(event, item, axis) {
   const midpoint = axis === 'horizontal'
     ? rect.left + (rect.width / 2)
     : rect.top + (rect.height / 2);
-  const after = axis === 'horizontal'
+  dragState.targetId = item.dataset.id;
+  dragState.after = axis === 'horizontal'
     ? event.clientX >= midpoint
     : event.clientY >= midpoint;
-
-  dragState.targetId = item.dataset.id;
-  dragState.after = after;
   refreshDropIndicators();
 }
 
@@ -335,14 +342,14 @@ function clearDropState() {
   dragState = null;
 }
 
-function bindPointerDropTargets(container, axis) {
+function bindPointerDropTargets(container) {
   container.addEventListener('dragover', (event) => {
     if (!dragState || event.target !== container) {
       return;
     }
 
     event.preventDefault();
-    const targetId = axis === 'horizontal' ? tabs.at(-1)?.id : tabs.at(-1)?.id;
+    const targetId = tabs.at(-1)?.id;
     if (targetId) {
       dragState.targetId = targetId;
       dragState.after = true;
@@ -380,36 +387,53 @@ async function reorderTabs(movingId, targetId, insertAfter) {
 }
 
 function mountEditorForActiveTab() {
-  const tab = tabs.find((candidate) => candidate.id === activeTabId) || tabs[0] || null;
+  const tab = getActiveTab();
   if (!tab) {
     ui.editorHost.replaceChildren();
+    updateSyntaxControl();
     return;
   }
 
-  if (editorView) {
-    editorView.destroy();
-    editorView = null;
+  if (editorSession) {
+    editorSession.destroy();
   }
 
   ui.editorHost.replaceChildren();
-  editorView = createCarbonEditor({
+  editorSession = createCarbonEditor({
     parent: ui.editorHost,
     doc: tab.content,
+    language: tab.language,
     onChange(nextContent) {
       tab.content = nextContent;
       render();
       scheduleAutosave(tab.id);
     }
   });
+  editorSession.focus();
+  updateSyntaxControl();
 }
 
 function scheduleAutosave(tabId) {
+  const tab = tabs.find((candidate) => candidate.id === tabId);
+  if (!tab) {
+    return;
+  }
+
+  if (!tab.persisted && tab.content === '') {
+    if (pendingSave?.id === tabId) {
+      clearTimeout(pendingSave.timer);
+      pendingSave = null;
+    }
+    updateStatus('Ready');
+    return;
+  }
+
   if (pendingSave?.timer) {
     clearTimeout(pendingSave.timer);
   }
 
   saveState = 'Autosaving...';
-  updateToolbarText();
+  updateStatusBar();
   pendingSave = {
     id: tabId,
     timer: window.setTimeout(() => {
@@ -430,9 +454,22 @@ async function saveTab(tabId, { silent = false } = {}) {
     pendingSave = null;
   }
 
+  if (!tab.persisted && tab.content === '') {
+    if (!silent) {
+      updateStatus('Ready');
+    }
+    return;
+  }
+
+  const wasPersisted = tab.persisted;
+
   try {
     await fs.promises.writeFile(tabPath(tab.id), tab.content);
+    tab.persisted = true;
     await writeState();
+    if (!wasPersisted) {
+      render();
+    }
     if (!silent) {
       updateStatus('All changes saved');
     }
@@ -452,10 +489,56 @@ async function flushPendingSave({ silent = false } = {}) {
   await saveTab(id, { silent });
 }
 
+async function updateActiveTabLanguage(languageId) {
+  const tab = getActiveTab();
+  if (!tab) {
+    return;
+  }
+
+  const nextLanguage = normalizeLanguageId(languageId);
+  if (tab.language === nextLanguage) {
+    updateSyntaxControl();
+    return;
+  }
+
+  tab.language = nextLanguage;
+  editorSession?.setLanguage(nextLanguage);
+  updateSyntaxControl();
+
+  if (tab.persisted) {
+    try {
+      await writeState();
+    } catch (error) {
+      updateStatus('Could not save syntax setting: ' + error.message);
+      return;
+    }
+  }
+
+  updateStatus(getIdleStatusForActiveTab());
+}
+
 async function writeState() {
+  const persistedTabs = tabs.filter((tab) => tab.persisted);
+  if (persistedTabs.length === 0) {
+    try {
+      await fs.promises.unlink(STATE_PATH);
+    } catch (error) {
+      if (error?.code !== 'ENOENT') {
+        throw error;
+      }
+    }
+    return;
+  }
+
   const payload = {
-    order: tabs.map((tab) => tab.id),
-    activeId: activeTabId
+    version: STATE_VERSION,
+    order: persistedTabs.map((tab) => tab.id),
+    activeId: persistedTabs.some((tab) => tab.id === activeTabId)
+      ? activeTabId
+      : persistedTabs[0].id,
+    tabs: Object.fromEntries(
+      persistedTabs.map((tab) => [tab.id, { language: tab.language }])
+    )
   };
 
   await fs.promises.writeFile(STATE_PATH, JSON.stringify(payload));
@@ -464,7 +547,8 @@ async function writeState() {
 async function readState() {
   try {
     const raw = await fs.promises.readFile(STATE_PATH, { encoding: 'utf8' });
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
   } catch {
     return {};
   }
@@ -494,6 +578,56 @@ async function ensureDir(path) {
   }
 }
 
+function handleDocumentKeydown(event) {
+  if (event.key === 'Escape' && isSidebarOpen) {
+    event.preventDefault();
+    setSidebarOpen(false);
+    return;
+  }
+
+  const primaryModifier = event.ctrlKey || event.metaKey;
+  if (!primaryModifier || event.altKey) {
+    return;
+  }
+
+  if (event.key === 'Tab') {
+    event.preventDefault();
+    void cycleTabs(event.shiftKey ? -1 : 1);
+    return;
+  }
+
+  const key = event.key.toLowerCase();
+  if (key === 't') {
+    event.preventDefault();
+    void createTabAtCurrentPosition();
+    return;
+  }
+
+  if (key === 'w') {
+    const tab = getActiveTab();
+    if (!tab) {
+      return;
+    }
+    event.preventDefault();
+    void closeTab(tab.id);
+  }
+}
+
+async function cycleTabs(step) {
+  if (tabs.length < 2) {
+    return;
+  }
+
+  const currentIndex = tabs.findIndex((tab) => tab.id === activeTabId);
+  const startIndex = currentIndex === -1 ? 0 : currentIndex;
+  const nextIndex = (startIndex + step + tabs.length) % tabs.length;
+  await selectTab(tabs[nextIndex].id);
+}
+
+function getActiveTab() {
+  return tabs.find((tab) => tab.id === activeTabId) || tabs[0] || null;
+}
+
 function tabPath(id) {
   return TABS_DIR + '/' + id + FILE_EXTENSION;
 }
@@ -504,15 +638,27 @@ function tabTitle(content) {
   return firstLine || EMPTY_TITLE;
 }
 
-function updateStatus(nextStatus) {
-  saveState = nextStatus;
-  updateToolbarText();
+function normalizeLanguageId(languageId) {
+  return LANGUAGE_IDS.has(languageId) ? languageId : DEFAULT_CARBON_LANGUAGE;
 }
 
-function updateToolbarText() {
-  const activeTab = tabs.find((tab) => tab.id === activeTabId);
-  const title = activeTab ? tabTitle(activeTab.content) : EMPTY_TITLE;
-  ui.toolbarStatus.textContent = title + ' · ' + saveState;
+function getIdleStatusForActiveTab() {
+  return getActiveTab()?.persisted ? 'All changes saved' : 'Ready';
+}
+
+function updateStatus(nextStatus) {
+  saveState = nextStatus;
+  updateStatusBar();
+}
+
+function updateStatusBar() {
+  ui.statusText.textContent = saveState;
+  updateSyntaxControl();
+}
+
+function updateSyntaxControl() {
+  const tab = getActiveTab();
+  ui.syntaxSelect.value = tab ? normalizeLanguageId(tab.language) : DEFAULT_CARBON_LANGUAGE;
 }
 
 function setSidebarOpen(open) {
