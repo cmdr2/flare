@@ -105,7 +105,6 @@ async function loadTabs() {
     listTabFiles()
   ]);
   const order = Array.isArray(state.order) ? state.order : [];
-  const activeId = typeof state.activeId === 'string' ? state.activeId : null;
   const tabState = state.tabs && typeof state.tabs === 'object' ? state.tabs : {};
   const knownIds = new Set();
   const orderedIds = [];
@@ -135,10 +134,6 @@ async function loadTabs() {
       });
     } catch {
     }
-  }
-
-  if (activeId && loadedTabs.some((tab) => tab.id === activeId)) {
-    activeTabId = activeId;
   }
 
   return loadedTabs;
@@ -792,9 +787,6 @@ async function writeState() {
   const payload = {
     version: STATE_VERSION,
     order: persistedTabs.map((tab) => tab.id),
-    activeId: persistedTabs.some((tab) => tab.id === activeTabId)
-      ? activeTabId
-      : persistedTabs[0].id,
     tabs: Object.fromEntries(
       persistedTabs.map((tab) => [tab.id, { language: tab.language }])
     )
