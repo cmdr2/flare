@@ -271,7 +271,7 @@ function bindEvents() {
 
   elements.upButton.addEventListener('click', () => {
     if (state.currentFolder !== '/') {
-      void navigateTo(parentDir(state.currentFolder));
+      void navigateTo(parentDir(state.currentFolder), { history: 'replace' });
     }
   });
 
@@ -316,6 +316,7 @@ function bindEvents() {
 
   window.addEventListener('pointerdown', handleGlobalPointerDown, true);
   window.addEventListener('keydown', handleGlobalKeyDown);
+  window.addEventListener('popstate', handleBrowserBack);
   window.addEventListener('resize', () => {
     syncViewportHeight();
     closeActionMenu();
@@ -631,13 +632,32 @@ async function openEntry(entry) {
   await openEditor(target.path);
 }
 
-async function navigateTo(path, { selectionPath, silent = false } = {}) {
+async function navigateTo(path, { selectionPath, silent = false, history = 'push' } = {}) {
   const folder = await ensureDirectory(path);
   state.currentFolder = folder;
   state.selectionPath = selectionPath || null;
   state.selectedPaths = selectionPath ? new Set([selectionPath]) : new Set();
   setSidebarOpen(false);
+  updateBrowserHistory(folder, { replace: history === 'replace' });
   await refreshExplorer(silent ? '' : 'Opened ' + folder);
+}
+
+function updateBrowserHistory(folder, { replace = false } = {}) {
+  const nextState = { explorerFolder: folder };
+  if (replace || window.history.state?.explorerFolder === folder) {
+    window.history.replaceState(nextState, '');
+    return;
+  }
+
+  window.history.pushState(nextState, '');
+}
+
+function handleBrowserBack() {
+  if (state.currentFolder === '/') {
+    return;
+  }
+
+  void navigateTo(parentDir(state.currentFolder), { silent: true, history: 'replace' });
 }
 
 function setView(view) {
@@ -902,7 +922,7 @@ async function renameItem(name) {
 
     closeDialog(elements.createDialog);
     await fs.promises.rename(sourcePath, targetPath);
-  await persistFavoriteChanges(remapFavorites(sourcePath, targetPath));
+    await persistFavoriteChanges(remapFavorites(sourcePath, targetPath));
     state.renamePath = '';
     state.selectionPath = targetPath;
     state.selectedPaths = new Set([targetPath]);
