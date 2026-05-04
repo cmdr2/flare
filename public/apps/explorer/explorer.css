@@ -209,7 +209,6 @@ button {
   color: #fff;
   min-height: 34px;
   padding: 6px 10px;
-  cursor: pointer;
   transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 }
 
@@ -439,7 +438,6 @@ button {
   border-radius: 10px;
   background: transparent;
   text-align: left;
-  cursor: pointer;
 }
 
 .favorite-row {
@@ -461,7 +459,6 @@ button {
   border-radius: 8px;
   background: transparent;
   color: var(--text-muted);
-  cursor: pointer;
 }
 
 .sidebar-link:hover,
@@ -525,7 +522,6 @@ button {
   border: 0;
   background: transparent;
   color: var(--text-muted);
-  cursor: pointer;
   border-radius: 6px;
   font-size: 0.95rem;
 }
@@ -545,7 +541,6 @@ button {
   border-radius: 8px;
   border: 1px solid transparent;
   background: transparent;
-  cursor: pointer;
   text-align: left;
 }
 
@@ -643,7 +638,6 @@ button {
   border-radius: 10px;
   border: 1px solid transparent;
   background: transparent;
-  cursor: pointer;
   text-align: left;
 }
 
@@ -890,7 +884,6 @@ button {
   background: transparent;
   color: inherit;
   text-align: left;
-  cursor: pointer;
   font-size: 0.86rem;
 }
 
