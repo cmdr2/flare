@@ -50,7 +50,6 @@ const MOBILE_LONG_PRESS_MS = 420;
 const MOBILE_DOUBLE_TAP_MS = 360;
 let longPressState = null;
 let backTrapArmed = false;
-let suppressNextPopstate = false;
 const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
   timeStyle: 'short'
@@ -264,6 +263,7 @@ syncViewportHeight();
 bindEvents();
 renderStatusMessage();
 await refreshExplorer();
+window.setTimeout(initBackTrap, 0);
 
 function bindEvents() {
   elements.addressForm.addEventListener('submit', (event) => {
@@ -639,7 +639,6 @@ async function navigateTo(path, { selectionPath, silent = false } = {}) {
   state.selectedPaths = selectionPath ? new Set([selectionPath]) : new Set();
   setSidebarOpen(false);
   await refreshExplorer(silent ? '' : 'Opened ' + folder);
-  syncBackButtonTrap();
 }
 
 async function goUp({ silent = false } = {}) {
@@ -650,39 +649,29 @@ async function goUp({ silent = false } = {}) {
   await navigateTo(parentDir(state.currentFolder), { silent });
 }
 
-function syncBackButtonTrap() {
-  if (state.currentFolder === '/') {
-    if (backTrapArmed) {
-      suppressNextPopstate = true;
-      backTrapArmed = false;
-      window.history.back();
-      return;
-    }
-
-    window.history.replaceState({ explorerBase: true }, '');
-    return;
-  }
-
+function initBackTrap() {
   if (backTrapArmed) {
     return;
   }
 
+  window.history.replaceState({ explorerBase: true }, '');
   window.history.pushState({ explorerBackTrap: true }, '');
   backTrapArmed = true;
 }
 
 function handleBrowserBack() {
-  if (suppressNextPopstate) {
-    suppressNextPopstate = false;
+  if (!backTrapArmed) {
     return;
   }
 
-  backTrapArmed = false;
   if (state.currentFolder === '/') {
+    window.history.pushState({ explorerBackTrap: true }, '');
     return;
   }
 
-  void goUp({ silent: true });
+  void goUp({ silent: true }).finally(() => {
+    window.history.pushState({ explorerBackTrap: true }, '');
+  });
 }
 
 function setView(view) {
