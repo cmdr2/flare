@@ -49,6 +49,8 @@ const state = {
 const MOBILE_LONG_PRESS_MS = 420;
 const MOBILE_DOUBLE_TAP_MS = 360;
 let longPressState = null;
+let backTrapArmed = false;
+let suppressNextPopstate = false;
 const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
   timeStyle: 'short'
@@ -270,9 +272,7 @@ function bindEvents() {
   });
 
   elements.upButton.addEventListener('click', () => {
-    if (state.currentFolder !== '/') {
-      void navigateTo(parentDir(state.currentFolder), { history: 'replace' });
-    }
+    void goUp();
   });
 
   elements.sidebarToggle.addEventListener('click', () => {
@@ -632,32 +632,57 @@ async function openEntry(entry) {
   await openEditor(target.path);
 }
 
-async function navigateTo(path, { selectionPath, silent = false, history = 'push' } = {}) {
+async function navigateTo(path, { selectionPath, silent = false } = {}) {
   const folder = await ensureDirectory(path);
   state.currentFolder = folder;
   state.selectionPath = selectionPath || null;
   state.selectedPaths = selectionPath ? new Set([selectionPath]) : new Set();
   setSidebarOpen(false);
-  updateBrowserHistory(folder, { replace: history === 'replace' });
   await refreshExplorer(silent ? '' : 'Opened ' + folder);
+  syncBackButtonTrap();
 }
 
-function updateBrowserHistory(folder, { replace = false } = {}) {
-  const nextState = { explorerFolder: folder };
-  if (replace || window.history.state?.explorerFolder === folder) {
-    window.history.replaceState(nextState, '');
-    return;
-  }
-
-  window.history.pushState(nextState, '');
-}
-
-function handleBrowserBack() {
+async function goUp({ silent = false } = {}) {
   if (state.currentFolder === '/') {
     return;
   }
 
-  void navigateTo(parentDir(state.currentFolder), { silent: true, history: 'replace' });
+  await navigateTo(parentDir(state.currentFolder), { silent });
+}
+
+function syncBackButtonTrap() {
+  if (state.currentFolder === '/') {
+    if (backTrapArmed) {
+      suppressNextPopstate = true;
+      backTrapArmed = false;
+      window.history.back();
+      return;
+    }
+
+    window.history.replaceState({ explorerBase: true }, '');
+    return;
+  }
+
+  if (backTrapArmed) {
+    return;
+  }
+
+  window.history.pushState({ explorerBackTrap: true }, '');
+  backTrapArmed = true;
+}
+
+function handleBrowserBack() {
+  if (suppressNextPopstate) {
+    suppressNextPopstate = false;
+    return;
+  }
+
+  backTrapArmed = false;
+  if (state.currentFolder === '/') {
+    return;
+  }
+
+  void goUp({ silent: true });
 }
 
 function setView(view) {
