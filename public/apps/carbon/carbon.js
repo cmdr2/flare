@@ -203,7 +203,7 @@ async function closeTab(id) {
   tabs.splice(index, 1);
 
   if (activeTabId === id) {
-    activeTabId = tabs[index]?.id || tabs[index - 1]?.id || null;
+    activeTabId = tabs[index - 1]?.id || tabs[index]?.id || null;
   }
 
   if (tab.persisted) {
@@ -280,6 +280,17 @@ function createTabNode(tab, axis) {
   item.addEventListener('dragend', () => {
     clearDropState();
   });
+
+  if (axis === 'horizontal') {
+    item.addEventListener('auxclick', (event) => {
+      if (event.button !== 1) {
+        return;
+      }
+
+      event.preventDefault();
+      void closeTab(tab.id);
+    });
+  }
 
   if (axis === 'vertical') {
     bindMobileLongPress(item, tab.id);
