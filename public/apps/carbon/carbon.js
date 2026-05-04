@@ -61,6 +61,7 @@ ui.sidebarBackdrop.addEventListener('click', (event) => {
 ui.syntaxSelect.addEventListener('change', () => {
   void updateActiveTabLanguage(ui.syntaxSelect.value);
 });
+ui.desktopTabStrip.addEventListener('wheel', handleDesktopTabStripWheel, { passive: false });
 
 document.addEventListener('keydown', handleDocumentKeydown, true);
 window.addEventListener('resize', syncLayoutOffset);
@@ -189,7 +190,7 @@ async function closeTab(id) {
   }
 
   const title = tabTitle(tab.content);
-  if (!window.confirm('Close ' + title + '? This deletes the saved tab.')) {
+  if (!isTabEmpty(tab) && !window.confirm('Close ' + title + '? This deletes the saved tab.')) {
     return;
   }
 
@@ -844,6 +845,13 @@ function handleDocumentKeydown(event) {
     return;
   }
 
+  const key = event.key.toLowerCase();
+  if (event.altKey && !event.ctrlKey && !event.metaKey && key === 't') {
+    event.preventDefault();
+    void createTabAtCurrentPosition();
+    return;
+  }
+
   const primaryModifier = event.ctrlKey || event.metaKey;
   if (!primaryModifier || event.altKey) {
     return;
@@ -855,7 +863,6 @@ function handleDocumentKeydown(event) {
     return;
   }
 
-  const key = event.key.toLowerCase();
   if (key === 't') {
     event.preventDefault();
     void createTabAtCurrentPosition();
@@ -887,8 +894,26 @@ function getActiveTab() {
   return tabs.find((tab) => tab.id === activeTabId) || tabs[0] || null;
 }
 
+function handleDesktopTabStripWheel(event) {
+  if (window.innerWidth <= MOBILE_BREAKPOINT_PX) {
+    return;
+  }
+
+  const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+  if (!delta) {
+    return;
+  }
+
+  ui.desktopTabStrip.scrollLeft += delta;
+  event.preventDefault();
+}
+
 function tabPath(id) {
   return TABS_DIR + '/' + id + FILE_EXTENSION;
+}
+
+function isTabEmpty(tab) {
+  return typeof tab?.content === 'string' && tab.content.length === 0;
 }
 
 function tabTitle(content) {
