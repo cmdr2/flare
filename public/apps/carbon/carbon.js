@@ -48,7 +48,7 @@ let saveState = 'Loading tabs...';
 let sidebarSwipeState = null;
 let mobileLongPress = null;
 let mobileDragState = null;
-let restoreSelection = null;
+let sessionState = createEmptySessionState();
 
 ui.newTabButton.addEventListener('click', () => {
   void createTabAtCurrentPosition();
@@ -87,6 +87,7 @@ async function initialize() {
   bindPointerDropTargets(ui.desktopTabStrip);
   bindPointerDropTargets(ui.mobileTabList);
   bindMobileSidebarGestures();
+  sessionState = readSessionState();
   await ensureDir(TABS_DIR);
   tabs = await loadTabs();
 
@@ -95,8 +96,6 @@ async function initialize() {
     updateStatus('Ready');
     return;
   }
-
-  restoreSelection = readSessionState();
   activeTabId = pickInitialActiveTab();
   render();
   mountEditorForActiveTab();
@@ -134,6 +133,7 @@ async function loadTabs() {
         id,
         content: await fs.promises.readFile(tabPath(id), { encoding: 'utf8' }),
         language: normalizeLanguageId(tabState[id]?.language),
+        viewState: readTabViewState(id),
         persisted: true
       });
     } catch {
@@ -144,7 +144,7 @@ async function loadTabs() {
 }
 
 function pickInitialActiveTab() {
-  const restoredTabId = restoreSelection?.activeTabId;
+  const restoredTabId = sessionState.activeTabId;
   if (restoredTabId && tabs.some((tab) => tab.id === restoredTabId)) {
     return restoredTabId;
   }
@@ -165,14 +165,17 @@ async function createTabAtCurrentPosition() {
 }
 
 async function createTab({ activate = true, index = tabs.length } = {}) {
+  saveActiveTabSessionState({ persist: true });
   const tab = {
     id: crypto.randomUUID(),
     content: '',
     language: DEFAULT_CARBON_LANGUAGE,
+    viewState: null,
     persisted: false
   };
   tabs.splice(index, 0, tab);
   activeTabId = activate ? tab.id : activeTabId || tab.id;
+  persistActiveTabId();
   render();
   mountEditorForActiveTab();
   return tab;
@@ -183,8 +186,10 @@ async function selectTab(id) {
     return;
   }
 
+  saveActiveTabSessionState({ persist: true });
   await flushPendingSave({ silent: true });
   activeTabId = id;
+  persistActiveTabId();
   render();
   mountEditorForActiveTab();
   setSidebarOpen(false);
@@ -196,6 +201,8 @@ async function closeTab(id) {
   if (!tab) {
     return;
   }
+
+  saveActiveTabSessionState({ persist: true });
 
   const title = tabTitle(tab.content);
   if (!isTabEmpty(tab) && !window.confirm('Close ' + title + '? This deletes the saved tab.')) {
@@ -209,10 +216,12 @@ async function closeTab(id) {
 
   const index = tabs.findIndex((candidate) => candidate.id === id);
   tabs.splice(index, 1);
+  delete sessionState.tabs[id];
 
   if (activeTabId === id) {
     activeTabId = tabs[index - 1]?.id || tabs[index]?.id || null;
   }
+  persistActiveTabId();
 
   if (tab.persisted) {
     try {
@@ -698,7 +707,6 @@ function mountEditorForActiveTab() {
     editorSession.focus();
   }
   restoreEditorSession(tab.id);
-  persistSessionState();
   updateSyntaxControl();
 }
 
@@ -718,8 +726,7 @@ function restoreEditorSession(tabId) {
     return;
   }
 
-  const selectionState = restoreSelection?.tabs?.[tabId];
-  restoreSelection = null;
+  const selectionState = readTabViewState(tabId);
   if (!selectionState) {
     updateStatusBar();
     return;
@@ -905,39 +912,109 @@ function readSessionState() {
   try {
     const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
     if (!raw) {
-      return null;
+      return createEmptySessionState();
     }
 
     const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? parsed : null;
+    if (!parsed || typeof parsed !== 'object') {
+      return createEmptySessionState();
+    }
+
+    return {
+      activeTabId: typeof parsed.activeTabId === 'string' ? parsed.activeTabId : '',
+      tabs: parsed.tabs && typeof parsed.tabs === 'object' ? parsed.tabs : {}
+    };
   } catch {
-    return null;
+    return createEmptySessionState();
   }
 }
 
 function persistSessionState() {
-  const session = {
-    activeTabId,
-    tabs: {}
-  };
+  persistActiveTabId();
+  const knownIds = new Set(tabs.map((tab) => tab.id));
 
   for (const tab of tabs) {
-    session.tabs[tab.id] = { language: tab.language };
-  }
-
-  if (editorSession && activeTabId) {
-    const selection = editorSession.view.state.selection.main;
-    session.tabs[activeTabId] = {
-      ...session.tabs[activeTabId],
-      anchor: selection.anchor,
-      head: selection.head,
-      scrollTop: editorSession.view.scrollDOM.scrollTop,
-      scrollLeft: editorSession.view.scrollDOM.scrollLeft
+    sessionState.tabs[tab.id] = {
+      ...sessionState.tabs[tab.id],
+      ...tab.viewState,
+      language: tab.language
     };
   }
 
-  window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+  for (const tabId of Object.keys(sessionState.tabs)) {
+    if (!knownIds.has(tabId)) {
+      delete sessionState.tabs[tabId];
+    }
+  }
+
+  saveActiveTabSessionState();
+  window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionState));
   updateStatusBar();
+}
+
+function persistActiveTabId() {
+  sessionState.activeTabId = activeTabId || '';
+  window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionState));
+}
+
+function createEmptySessionState() {
+  return {
+    activeTabId: '',
+    tabs: {}
+  };
+}
+
+function saveActiveTabSessionState({ persist = false } = {}) {
+  if (!editorSession || !activeTabId) {
+    return;
+  }
+
+  const selection = editorSession.view.state.selection.main;
+  const activeTab = tabs.find((tab) => tab.id === activeTabId);
+  const viewState = {
+    anchor: selection.anchor,
+    head: selection.head,
+    scrollTop: editorSession.view.scrollDOM.scrollTop,
+    scrollLeft: editorSession.view.scrollDOM.scrollLeft
+  };
+
+  if (activeTab) {
+    activeTab.viewState = viewState;
+  }
+
+  sessionState.tabs[activeTabId] = {
+    ...sessionState.tabs[activeTabId],
+    ...viewState,
+    language: activeTab?.language || sessionState.tabs[activeTabId]?.language || DEFAULT_CARBON_LANGUAGE
+  };
+
+  if (persist) {
+    sessionState.activeTabId = activeTabId;
+    window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionState));
+  }
+}
+
+function readTabViewState(tabId) {
+  if (!tabId) {
+    return null;
+  }
+
+  const tab = tabs.find((candidate) => candidate.id === tabId);
+  if (tab?.viewState) {
+    return tab.viewState;
+  }
+
+  const state = sessionState.tabs[tabId];
+  if (!state || typeof state !== 'object') {
+    return null;
+  }
+
+  return {
+    anchor: state.anchor,
+    head: state.head,
+    scrollTop: state.scrollTop,
+    scrollLeft: state.scrollLeft
+  };
 }
 
 async function readState() {
