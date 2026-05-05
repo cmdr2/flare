@@ -655,8 +655,12 @@ function initBackTrap() {
   }
 
   window.history.replaceState({ explorerBase: true }, '');
-  window.history.pushState({ explorerBackTrap: true }, '');
+  pushBackTrapState();
   backTrapArmed = true;
+}
+
+function pushBackTrapState() {
+  window.history.pushState({ explorerBackTrap: true }, '');
 }
 
 function handleBrowserBack() {
@@ -664,14 +668,13 @@ function handleBrowserBack() {
     return;
   }
 
+  pushBackTrapState();
+
   if (state.currentFolder === '/') {
-    window.history.pushState({ explorerBackTrap: true }, '');
     return;
   }
 
-  void goUp({ silent: true }).finally(() => {
-    window.history.pushState({ explorerBackTrap: true }, '');
-  });
+  void goUp({ silent: true });
 }
 
 function setView(view) {
