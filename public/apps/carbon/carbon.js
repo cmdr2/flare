@@ -694,10 +694,10 @@ function mountEditorForActiveTab() {
     }
   });
   attachEditorSessionListeners(tab.id);
-  restoreEditorSession(tab.id);
   if (!isMobileViewport()) {
     editorSession.focus();
   }
+  restoreEditorSession(tab.id);
   persistSessionState();
   updateSyntaxControl();
 }
@@ -729,9 +729,28 @@ function restoreEditorSession(tabId) {
   const anchor = clampSelectionPosition(selectionState.anchor, docLength);
   const head = clampSelectionPosition(selectionState.head, docLength);
   editorSession.view.dispatch({ selection: { anchor, head } });
-  editorSession.view.scrollDOM.scrollTop = normalizeScrollOffset(selectionState.scrollTop);
-  editorSession.view.scrollDOM.scrollLeft = normalizeScrollOffset(selectionState.scrollLeft);
+  restoreEditorViewport(selectionState);
   updateStatusBar();
+}
+
+function restoreEditorViewport(selectionState) {
+  if (!editorSession) {
+    return;
+  }
+
+  const scrollTop = normalizeScrollOffset(selectionState.scrollTop);
+  const scrollLeft = normalizeScrollOffset(selectionState.scrollLeft);
+  const { scrollDOM } = editorSession.view;
+  const applyScroll = () => {
+    scrollDOM.scrollTop = scrollTop;
+    scrollDOM.scrollLeft = scrollLeft;
+  };
+
+  applyScroll();
+  window.requestAnimationFrame(() => {
+    applyScroll();
+    window.requestAnimationFrame(applyScroll);
+  });
 }
 
 function clampSelectionPosition(position, docLength) {
