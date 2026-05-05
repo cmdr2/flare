@@ -15,6 +15,7 @@ const AUTOSAVE_DELAY_MS = 450;
 const EMPTY_TITLE = 'Untitled';
 const FILE_EXTENSION = '.txt';
 const STATE_VERSION = 1;
+const SESSION_STORAGE_KEY = 'flare-carbon-session';
 const MOBILE_BREAKPOINT_PX = 720;
 const MOBILE_OPEN_SWIPE_DISTANCE_PX = 180;
 const MOBILE_CLOSE_SWIPE_DISTANCE_PX = 50;
@@ -47,6 +48,7 @@ let saveState = 'Loading tabs...';
 let sidebarSwipeState = null;
 let mobileLongPress = null;
 let mobileDragState = null;
+let restoreSelection = null;
 
 ui.newTabButton.addEventListener('click', () => {
   void createTabAtCurrentPosition();
@@ -94,6 +96,7 @@ async function initialize() {
     return;
   }
 
+  restoreSelection = readSessionState();
   activeTabId = pickInitialActiveTab();
   render();
   mountEditorForActiveTab();
@@ -141,6 +144,11 @@ async function loadTabs() {
 }
 
 function pickInitialActiveTab() {
+  const restoredTabId = restoreSelection?.activeTabId;
+  if (restoredTabId && tabs.some((tab) => tab.id === restoredTabId)) {
+    return restoredTabId;
+  }
+
   if (activeTabId && tabs.some((tab) => tab.id === activeTabId)) {
     return activeTabId;
   }
@@ -282,12 +290,14 @@ function createTabNode(tab, axis) {
   });
 
   if (axis === 'horizontal') {
-    item.addEventListener('auxclick', (event) => {
-      if (event.button !== 1) {
+    item.addEventListener('mousedown', (event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (event.button !== 1 || target?.closest('.tab-close')) {
         return;
       }
 
       event.preventDefault();
+      event.stopPropagation();
       void closeTab(tab.id);
     });
   }
@@ -662,6 +672,7 @@ function mountEditorForActiveTab() {
   const tab = getActiveTab();
   if (!tab) {
     ui.editorHost.replaceChildren();
+    editorSession = null;
     updateSyntaxControl();
     return;
   }
@@ -679,12 +690,64 @@ function mountEditorForActiveTab() {
       tab.content = nextContent;
       render();
       scheduleAutosave(tab.id);
+      persistSessionState();
     }
   });
+  attachEditorSessionListeners(tab.id);
+  restoreEditorSession(tab.id);
   if (!isMobileViewport()) {
     editorSession.focus();
   }
+  persistSessionState();
   updateSyntaxControl();
+}
+
+function attachEditorSessionListeners(tabId) {
+  if (!editorSession) {
+    return;
+  }
+
+  const { view } = editorSession;
+  view.dom.addEventListener('mouseup', persistSessionState);
+  view.dom.addEventListener('keyup', persistSessionState);
+  view.scrollDOM.addEventListener('scroll', persistSessionState, { passive: true });
+}
+
+function restoreEditorSession(tabId) {
+  if (!editorSession) {
+    return;
+  }
+
+  const selectionState = restoreSelection?.tabs?.[tabId];
+  restoreSelection = null;
+  if (!selectionState) {
+    updateStatusBar();
+    return;
+  }
+
+  const docLength = editorSession.view.state.doc.length;
+  const anchor = clampSelectionPosition(selectionState.anchor, docLength);
+  const head = clampSelectionPosition(selectionState.head, docLength);
+  editorSession.view.dispatch({ selection: { anchor, head } });
+  editorSession.view.scrollDOM.scrollTop = normalizeScrollOffset(selectionState.scrollTop);
+  editorSession.view.scrollDOM.scrollLeft = normalizeScrollOffset(selectionState.scrollLeft);
+  updateStatusBar();
+}
+
+function clampSelectionPosition(position, docLength) {
+  if (!Number.isFinite(position)) {
+    return docLength;
+  }
+
+  return Math.max(0, Math.min(docLength, Math.trunc(position)));
+}
+
+function normalizeScrollOffset(offset) {
+  if (!Number.isFinite(offset)) {
+    return 0;
+  }
+
+  return Math.max(0, offset);
 }
 
 function scheduleAutosave(tabId) {
@@ -744,6 +807,7 @@ async function saveTab(tabId, { silent = false } = {}) {
     if (!wasPersisted) {
       render();
     }
+    persistSessionState();
     if (!silent) {
       updateStatus('All changes saved');
     }
@@ -778,6 +842,7 @@ async function updateActiveTabLanguage(languageId) {
   tab.language = nextLanguage;
   editorSession?.setLanguage(nextLanguage);
   updateSyntaxControl();
+  persistSessionState();
 
   if (tab.persisted) {
     try {
@@ -813,6 +878,45 @@ async function writeState() {
   };
 
   await fs.promises.writeFile(STATE_PATH, JSON.stringify(payload));
+}
+
+function readSessionState() {
+  try {
+    const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistSessionState() {
+  const session = {
+    activeTabId,
+    tabs: {}
+  };
+
+  for (const tab of tabs) {
+    session.tabs[tab.id] = { language: tab.language };
+  }
+
+  if (editorSession && activeTabId) {
+    const selection = editorSession.view.state.selection.main;
+    session.tabs[activeTabId] = {
+      ...session.tabs[activeTabId],
+      anchor: selection.anchor,
+      head: selection.head,
+      scrollTop: editorSession.view.scrollDOM.scrollTop,
+      scrollLeft: editorSession.view.scrollDOM.scrollLeft
+    };
+  }
+
+  window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+  updateStatusBar();
 }
 
 async function readState() {
@@ -947,8 +1051,31 @@ function updateStatus(nextStatus) {
 }
 
 function updateStatusBar() {
-  ui.statusText.textContent = saveState;
+  const lineStatus = getLineStatusText();
+  ui.statusText.textContent = lineStatus ? saveState + ' • ' + lineStatus : saveState;
   updateSyntaxControl();
+}
+
+function getLineStatusText() {
+  if (!editorSession) {
+    return '';
+  }
+
+  const { state } = editorSession.view;
+  const selection = state.selection.main;
+  const totalLines = state.doc.lines;
+  if (selection.empty) {
+    return formatLineCount(totalLines);
+  }
+
+  const startLine = state.doc.lineAt(Math.min(selection.anchor, selection.head)).number;
+  const endLine = state.doc.lineAt(Math.max(selection.anchor, selection.head)).number;
+  const selectedLines = Math.max(1, endLine - startLine + 1);
+  return selectedLines + ' selected ' + (selectedLines === 1 ? 'line' : 'lines');
+}
+
+function formatLineCount(lineCount) {
+  return lineCount + ' ' + (lineCount === 1 ? 'line' : 'lines');
 }
 
 function updateSyntaxControl() {
