@@ -740,10 +740,12 @@ function restoreEditorViewport(selectionState) {
 
   const scrollTop = normalizeScrollOffset(selectionState.scrollTop);
   const scrollLeft = normalizeScrollOffset(selectionState.scrollLeft);
-  const { scrollDOM } = editorSession.view;
+  const { view } = editorSession;
+  const { scrollDOM } = view;
   const applyScroll = () => {
     scrollDOM.scrollTop = scrollTop;
     scrollDOM.scrollLeft = scrollLeft;
+    view.requestMeasure();
   };
 
   applyScroll();
