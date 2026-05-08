@@ -47,7 +47,7 @@ const carbonTheme = EditorView.theme({
     caretColor: '#f8f8f0'
   },
   '.cm-line': {
-    padding: '0 12px'
+    padding: '0 8px'
   },
   '.cm-gutters': {
     border: 'none',
