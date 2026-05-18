@@ -33,8 +33,8 @@ const STATUS_META = {
 const STATUS_BREAKDOWN_META = {
     upload: { label: 'Upload', icon: 'fa-cloud-arrow-up' },
     download: { label: 'Download', icon: 'fa-cloud-arrow-down' },
-    localDelete: { label: 'Local delete', icon: 'fa-hard-drive' },
-    remoteDelete: { label: 'Remote delete', icon: 'fa-cloud-slash' }
+    localDelete: { label: 'Local delete', icon: 'fa-trash' },
+    remoteDelete: { label: 'Remote delete', icon: 'fa-trash-arrow-up' }
 };
 
 let syncFrame = null;
