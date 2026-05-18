@@ -101,19 +101,23 @@ export async function inspectSyncState(credentials, { requestId, onProgress } = 
 
     logSyncEntries('check', getTrackedPaths(local, remote), local, remote, requestId, onProgress);
 
+    const tasks = getSyncTasks(local, remote, localOld, remoteOld);
+    const breakdown = getTaskBreakdown(tasks);
+
     if (Object.keys(remote).length === 0) {
         logSyncDebug('inspect:remote-empty', { requestId });
         return {
             status: 'needs-sync',
-            summary: 'Remote store is empty.'
+            summary: 'Remote store is empty.',
+            breakdown
         };
     }
 
-    const tasks = getSyncTasks(local, remote, localOld, remoteOld);
     logSyncDebug('inspect:summary', { requestId, summary: summarizeTasks(tasks) });
     return {
         status: hasPendingTasks(tasks) ? 'needs-sync' : 'up-to-date',
-        summary: summarizeTasks(tasks)
+        summary: summarizeTasks(tasks),
+        breakdown
     };
 }
 
@@ -936,12 +940,23 @@ function hasPendingTasks(tasks) {
         || Object.keys(tasks.remoteDelete).length > 0;
 }
 
+function getTaskBreakdown(tasks) {
+    return {
+        upload: Object.keys(tasks.upload).length,
+        download: Object.keys(tasks.download).length,
+        localDelete: Object.keys(tasks.localDelete).length,
+        remoteDelete: Object.keys(tasks.remoteDelete).length
+    };
+}
+
 function summarizeTasks(tasks) {
+    const breakdown = getTaskBreakdown(tasks);
+
     return [
-        'upload=' + Object.keys(tasks.upload).length,
-        'download=' + Object.keys(tasks.download).length,
-        'localDelete=' + Object.keys(tasks.localDelete).length,
-        'remoteDelete=' + Object.keys(tasks.remoteDelete).length,
+        'upload=' + breakdown.upload,
+        'download=' + breakdown.download,
+        'localDelete=' + breakdown.localDelete,
+        'remoteDelete=' + breakdown.remoteDelete,
         'error=' + String(Boolean(tasks.error))
     ].join(', ');
 }

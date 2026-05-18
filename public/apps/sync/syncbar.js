@@ -30,12 +30,22 @@ const STATUS_META = {
     'setup-needed': { label: 'Setup needed', icon: 'fa-screwdriver-wrench', tone: 'warning' }
 };
 
+const STATUS_BREAKDOWN_META = {
+    upload: { label: 'Upload', icon: 'fa-cloud-arrow-up' },
+    download: { label: 'Download', icon: 'fa-cloud-arrow-down' },
+    localDelete: { label: 'Local delete', icon: 'fa-hard-drive' },
+    remoteDelete: { label: 'Remote delete', icon: 'fa-cloud-slash' }
+};
+
 let syncFrame = null;
 let syncReady = false;
 let syncButton = null;
 let statusNode = null;
 let statusIconNode = null;
 let statusTextNode = null;
+let statusInfoButton = null;
+let statusPopoverNode = null;
+let statusPopoverListNode = null;
 let progressNode = null;
 let progressCountNode = null;
 let setupLink = null;
@@ -44,12 +54,17 @@ let iframeTimeout = null;
 let isSyncing = false;
 let reloadAfterCheck = false;
 let localDirty = false;
+let currentStatusKey = 'connecting';
+let syncStatusBreakdown = null;
+let syncStatusDetailsPending = false;
 
 ensureFontAwesomeStyles();
 mountSyncBar();
 patchLightningFs();
 ensureSyncFrame();
 window.addEventListener('message', handleMessage);
+document.addEventListener('click', handleDocumentClick);
+document.addEventListener('keydown', handleDocumentKeydown);
 
 function ensureFontAwesomeStyles() {
     for (const href of FONT_AWESOME_STYLES) {
@@ -101,6 +116,7 @@ function mountSyncBar() {
     }
 
     .flare-sync-status {
+        position: relative;
         display: inline-flex;
         align-items: center;
         gap: 8px;
@@ -132,6 +148,73 @@ function mountSyncBar() {
         display: inline-grid;
         place-items: center;
         flex: none;
+    }
+
+    .flare-sync-status-text {
+        white-space: nowrap;
+    }
+
+    .flare-sync-status-info {
+        display: inline-grid;
+        place-items: center;
+        width: 16px;
+        height: 16px;
+        padding: 0;
+        border: 1px solid currentColor;
+        border-radius: 999px;
+        background: transparent;
+        color: inherit;
+        font: 600 10px/1 'Segoe UI', system-ui, sans-serif;
+        cursor: pointer;
+        opacity: 0.92;
+    }
+
+    .flare-sync-status-info[hidden] {
+        display: none;
+    }
+
+    .flare-sync-status-popover {
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 22px;
+        min-width: 164px;
+        max-width: min(220px, calc(100vw - 24px));
+        padding: 7px 8px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 10px;
+        background: rgba(15, 20, 27, 0.97);
+        color: #eef5ff;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.26);
+        backdrop-filter: blur(12px);
+    }
+
+    .flare-sync-status-popover[hidden] {
+        display: none;
+    }
+
+    .flare-sync-status-list {
+        display: grid;
+        gap: 4px;
+    }
+
+    .flare-sync-status-row {
+        display: grid;
+        grid-template-columns: 14px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        line-height: 1.15;
+    }
+
+    .flare-sync-status-row i {
+        width: 14px;
+        text-align: center;
+        color: #f3c992;
+    }
+
+    .flare-sync-status-row-count {
+        font-variant-numeric: tabular-nums;
+        color: #fff4dc;
     }
 
     .flare-sync-progress {
@@ -194,6 +277,12 @@ function mountSyncBar() {
             padding-inline: 8px;
         }
 
+        .flare-sync-status-popover {
+            left: auto;
+            right: 0;
+            min-width: 154px;
+        }
+
         .flare-sync-button-text,
         .flare-sync-link-text {
             display: none;
@@ -218,7 +307,26 @@ function mountSyncBar() {
     statusIconNode.className = 'flare-sync-status-icon';
     statusTextNode = document.createElement('span');
     statusTextNode.className = 'flare-sync-status-text';
-    statusNode.append(statusIconNode, statusTextNode);
+    statusInfoButton = document.createElement('button');
+    statusInfoButton.className = 'flare-sync-status-info';
+    statusInfoButton.type = 'button';
+    statusInfoButton.hidden = true;
+    statusInfoButton.textContent = '?';
+    statusInfoButton.setAttribute('aria-label', 'Show sync details');
+    statusInfoButton.setAttribute('aria-expanded', 'false');
+    statusInfoButton.addEventListener('click', handleStatusInfoToggle);
+
+    statusPopoverNode = document.createElement('span');
+    statusPopoverNode.className = 'flare-sync-status-popover';
+    statusPopoverNode.hidden = true;
+    statusPopoverNode.setAttribute('role', 'dialog');
+    statusPopoverNode.setAttribute('aria-label', 'Sync details');
+
+    statusPopoverListNode = document.createElement('span');
+    statusPopoverListNode.className = 'flare-sync-status-list';
+    statusPopoverNode.append(statusPopoverListNode);
+
+    statusNode.append(statusIconNode, statusTextNode, statusInfoButton, statusPopoverNode);
     setStatus('connecting');
 
     progressNode = document.createElement('span');
@@ -289,7 +397,7 @@ function handleMessage(event) {
     }
 
     if (event.data.type === 'sync-status') {
-        handleSyncStatus(event.data.payload?.status || 'offline');
+        handleSyncStatus(event.data.payload || { status: 'offline' });
         return;
     }
 
@@ -352,9 +460,14 @@ function handleSyncProgress(payload) {
     setStatus('syncing', payload.message || STATUS_META.syncing.label);
 }
 
-function handleSyncStatus(status) {
+function handleSyncStatus(payload) {
+    const status = payload?.status || 'offline';
+
     isSyncing = false;
     clearProgress();
+    syncStatusBreakdown = payload?.breakdown || null;
+    syncStatusDetailsPending = false;
+    renderStatusBreakdown();
 
     if (reloadAfterCheck) {
         reloadAfterCheck = false;
@@ -416,6 +529,8 @@ function handleSyncStatus(status) {
 function markDirty() {
     localDirty = true;
     reloadAfterCheck = false;
+    syncStatusBreakdown = null;
+    syncStatusDetailsPending = false;
     clearProgress();
     setStatus('needs-sync');
     setSyncEnabled(syncReady && !isSyncing);
@@ -543,10 +658,12 @@ function setStatus(statusKey, labelOverride) {
 
     const meta = STATUS_META[statusKey] || { label: labelOverride || statusKey, icon: 'fa-circle-info', tone: 'muted' };
     const label = labelOverride || meta.label;
+    currentStatusKey = statusKey;
     statusNode.dataset.tone = meta.tone;
     statusNode.title = label;
     statusIconNode.replaceChildren(createSyncIcon(meta.icon, meta.spin));
     statusTextNode.textContent = label;
+    updateStatusInfoButton();
 }
 
 function setProgress(completed, total) {
@@ -581,6 +698,102 @@ function showSetupLink(visible) {
     if (setupLink) {
         setupLink.hidden = !visible;
     }
+}
+
+function updateStatusInfoButton() {
+    if (!statusInfoButton) {
+        return;
+    }
+
+    const visible = currentStatusKey === 'needs-sync';
+    statusInfoButton.hidden = !visible;
+    if (!visible) {
+        closeStatusPopover();
+    }
+}
+
+function handleStatusInfoToggle(event) {
+    event.stopPropagation();
+
+    if (statusPopoverNode?.hidden) {
+        openStatusPopover();
+        return;
+    }
+
+    closeStatusPopover();
+}
+
+function openStatusPopover() {
+    if (!statusPopoverNode || currentStatusKey !== 'needs-sync') {
+        return;
+    }
+
+    if (!syncStatusBreakdown && !syncStatusDetailsPending && syncReady && !isSyncing) {
+        syncStatusDetailsPending = true;
+        renderStatusBreakdown();
+        sendSyncMessage('check');
+    }
+
+    statusPopoverNode.hidden = false;
+    statusInfoButton?.setAttribute('aria-expanded', 'true');
+}
+
+function closeStatusPopover() {
+    if (!statusPopoverNode || !statusInfoButton) {
+        return;
+    }
+
+    statusPopoverNode.hidden = true;
+    statusInfoButton.setAttribute('aria-expanded', 'false');
+}
+
+function handleDocumentClick(event) {
+    if (!statusNode?.contains(event.target)) {
+        closeStatusPopover();
+    }
+}
+
+function handleDocumentKeydown(event) {
+    if (event.key === 'Escape') {
+        closeStatusPopover();
+    }
+}
+
+function renderStatusBreakdown() {
+    if (!statusPopoverListNode) {
+        return;
+    }
+
+    const rows = [];
+
+    for (const [key, meta] of Object.entries(STATUS_BREAKDOWN_META)) {
+        const row = document.createElement('span');
+        row.className = 'flare-sync-status-row';
+
+        const label = document.createElement('span');
+        label.textContent = meta.label;
+
+        const count = document.createElement('span');
+        count.className = 'flare-sync-status-row-count';
+        count.textContent = getBreakdownCountLabel(key);
+
+        row.append(createSyncIcon(meta.icon), label, count);
+        rows.push(row);
+    }
+
+    statusPopoverListNode.replaceChildren(...rows);
+}
+
+function getBreakdownCountLabel(key) {
+    if (syncStatusDetailsPending) {
+        return '...';
+    }
+
+    if (!syncStatusBreakdown) {
+        return '-';
+    }
+
+    return String(syncStatusBreakdown[key] ?? 0);
 }
 
 function createSyncIcon(iconName, spin = false) {
