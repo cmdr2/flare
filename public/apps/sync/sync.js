@@ -4,7 +4,9 @@ export const SYNC_SOURCE = 'flare-sync';
 export const CREDENTIALS_PATH = '/home/.aws/credentials';
 export const LOCAL_INDEX_PATH = '/home/.sync/.local';
 export const REMOTE_INDEX_PATH = '/home/.sync/.remote';
+export const SYNC_LOG_PATH = '/home/.sync/log.txt';
 const MD5_HEX_LENGTH = 32;
+const MAX_SYNC_LOG_ENTRIES = 100;
 const SYNC_LOG_PREFIX = '[sync]';
 
 const AWS_SDK_URL = '/public/libs/aws-sdk.min.js';
@@ -150,6 +152,7 @@ export async function performSync({ requestId, onProgress }) {
         const localOld = await getOldIndex(LOCAL_INDEX_PATH);
         const remoteOld = await getOldIndex(REMOTE_INDEX_PATH);
         const tasks = getSyncTasks(local, remote, localOld, remoteOld);
+        const syncLogEntry = createSyncLogEntry(tasks);
         logSyncDebug('perform:summary', { requestId, summary: summarizeTasks(tasks) });
 
         await runSyncTasks(tasks, remoteStorage, local, remote, requestId, onProgress);
@@ -157,6 +160,7 @@ export async function performSync({ requestId, onProgress }) {
         local = await getLocalFiles();
         await setOldIndex(LOCAL_INDEX_PATH, local);
         await setOldIndex(REMOTE_INDEX_PATH, local);
+        await appendSyncLogEntry(syncLogEntry);
         await flushFs();
 
         logSyncDebug('perform:complete', {
@@ -176,7 +180,8 @@ export async function performSync({ requestId, onProgress }) {
 export function shouldSyncPath(path) {
     return path !== CREDENTIALS_PATH
         && path !== LOCAL_INDEX_PATH
-        && path !== REMOTE_INDEX_PATH;
+        && path !== REMOTE_INDEX_PATH
+        && path !== SYNC_LOG_PATH;
 }
 
 async function getLocalFiles() {
@@ -524,6 +529,37 @@ async function setOldIndex(indexPath, entries) {
         lines.push(filePath + ':' + hash);
     }
     await writeText(indexPath, lines.join('\n'));
+}
+
+function createSyncLogEntry(tasks) {
+    return {
+        timestamp: new Date().toISOString(),
+        uploaded: Object.keys(tasks.upload).length,
+        downloaded: Object.keys(tasks.download).length
+    };
+}
+
+async function appendSyncLogEntry(entry) {
+    const lines = [];
+
+    if (await exists(SYNC_LOG_PATH)) {
+        const existing = await readText(SYNC_LOG_PATH);
+        for (const line of existing.split(/\r?\n/)) {
+            const trimmed = line.trim();
+            if (trimmed) {
+                lines.push(trimmed);
+            }
+        }
+    }
+
+    lines.push(formatSyncLogEntry(entry));
+    await writeText(SYNC_LOG_PATH, lines.slice(-MAX_SYNC_LOG_ENTRIES).join('\n'));
+}
+
+function formatSyncLogEntry(entry) {
+    return entry.timestamp
+        + ' upload=' + entry.uploaded
+        + ' download=' + entry.downloaded;
 }
 
 async function createRemoteStorage(credentials) {

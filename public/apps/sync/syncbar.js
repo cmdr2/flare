@@ -11,7 +11,8 @@ const FONT_AWESOME_STYLES = [
 const DIRTY_EXCLUDED_PATHS = new Set([
     '/home/.aws/credentials',
     '/home/.sync/.local',
-    '/home/.sync/.remote'
+    '/home/.sync/.remote',
+    '/home/.sync/log.txt'
 ]);
 
 const STATUS_META = {
@@ -51,16 +52,16 @@ ensureSyncFrame();
 window.addEventListener('message', handleMessage);
 
 function ensureFontAwesomeStyles() {
-        for (const href of FONT_AWESOME_STYLES) {
-                if (document.querySelector('link[href="' + href + '"]')) {
-                        continue;
-                }
-
-                const link = document.createElement('link');
-                link.rel = 'stylesheet';
-                link.href = href;
-                document.head.appendChild(link);
+    for (const href of FONT_AWESOME_STYLES) {
+        if (document.querySelector('link[href="' + href + '"]')) {
+            continue;
         }
+
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = href;
+        document.head.appendChild(link);
+    }
 }
 
 function mountSyncBar() {
