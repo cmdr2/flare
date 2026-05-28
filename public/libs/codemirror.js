@@ -8,7 +8,7 @@ var rangeTo = [];
 })();
 function isExtendingChar(code) {
   if (code < 768) return false;
-  for (let from = 0, to = rangeFrom.length; ; ) {
+  for (let from = 0, to = rangeFrom.length; ;) {
     let mid = from + to >> 1;
     if (code < rangeFrom[mid]) to = mid;
     else if (code >= rangeTo[mid]) from = mid + 1;
@@ -145,7 +145,7 @@ var Text = class _Text {
       return false;
     let start = this.scanIdentical(other, 1), end = this.length - this.scanIdentical(other, -1);
     let a2 = new RawTextCursor(this), b = new RawTextCursor(other);
-    for (let skip = start, pos = start; ; ) {
+    for (let skip = start, pos = start; ;) {
       a2.next(skip);
       b.next(skip);
       skip = 0;
@@ -473,7 +473,7 @@ var RawTextCursor = class {
   }
   nextInner(skip, dir) {
     this.done = this.lineBreak = false;
-    for (; ; ) {
+    for (; ;) {
       let last = this.nodes.length - 1;
       let top2 = this.nodes[last], offsetValue = this.offsets[last], offset = offsetValue >> 1;
       let size = top2 instanceof TextLeaf ? top2.text.length : top2.children.length;
@@ -595,10 +595,10 @@ var LineCursor = class {
   }
 };
 if (typeof Symbol != "undefined") {
-  Text.prototype[Symbol.iterator] = function() {
+  Text.prototype[Symbol.iterator] = function () {
     return this.iter();
   };
-  RawTextCursor.prototype[Symbol.iterator] = PartialTextCursor.prototype[Symbol.iterator] = LineCursor.prototype[Symbol.iterator] = function() {
+  RawTextCursor.prototype[Symbol.iterator] = PartialTextCursor.prototype[Symbol.iterator] = LineCursor.prototype[Symbol.iterator] = function () {
     return this;
   };
 }
@@ -651,7 +651,7 @@ function codePointSize2(code) {
   return code < 65536 ? 1 : 2;
 }
 var DefaultSplit = /\r\n?|\n/;
-var MapMode = /* @__PURE__ */ (function(MapMode2) {
+var MapMode = /* @__PURE__ */ (function (MapMode2) {
   MapMode2[MapMode2["Simple"] = 0] = "Simple";
   MapMode2[MapMode2["TrackDel"] = 1] = "TrackDel";
   MapMode2[MapMode2["TrackBefore"] = 2] = "TrackBefore";
@@ -702,7 +702,7 @@ var ChangeDesc = class _ChangeDesc {
   the new position in the changed document.
   */
   iterGaps(f) {
-    for (let i = 0, posA = 0, posB = 0; i < this.sections.length; ) {
+    for (let i = 0, posA = 0, posB = 0; i < this.sections.length;) {
       let len = this.sections[i++], ins = this.sections[i++];
       if (ins < 0) {
         f(posA, posB, len);
@@ -733,7 +733,7 @@ var ChangeDesc = class _ChangeDesc {
   */
   get invertedDesc() {
     let sections = [];
-    for (let i = 0; i < this.sections.length; ) {
+    for (let i = 0; i < this.sections.length;) {
       let len = this.sections[i++], ins = this.sections[i++];
       if (ins < 0)
         sections.push(len, ins);
@@ -761,7 +761,7 @@ var ChangeDesc = class _ChangeDesc {
   }
   mapPos(pos, assoc = -1, mode = MapMode.Simple) {
     let posA = 0, posB = 0;
-    for (let i = 0; i < this.sections.length; ) {
+    for (let i = 0; i < this.sections.length;) {
       let len = this.sections[i++], ins = this.sections[i++], endA = posA + len;
       if (ins < 0) {
         if (endA > pos)
@@ -786,7 +786,7 @@ var ChangeDesc = class _ChangeDesc {
   returned.
   */
   touchesRange(from, to = from) {
-    for (let i = 0, pos = 0; i < this.sections.length && pos <= to; ) {
+    for (let i = 0, pos = 0; i < this.sections.length && pos <= to;) {
       let len = this.sections[i++], ins = this.sections[i++], end = pos + len;
       if (ins >= 0 && pos <= to && end >= from)
         return pos < from && end > to ? "cover" : true;
@@ -799,7 +799,7 @@ var ChangeDesc = class _ChangeDesc {
   */
   toString() {
     let result = "";
-    for (let i = 0; i < this.sections.length; ) {
+    for (let i = 0; i < this.sections.length;) {
       let len = this.sections[i++], ins = this.sections[i++];
       result += (result ? " " : "") + len + (ins >= 0 ? ":" + ins : "");
     }
@@ -917,7 +917,7 @@ var ChangeSet = class _ChangeSet extends ChangeDesc {
   filter(ranges) {
     let resultSections = [], resultInserted = [], filteredSections = [];
     let iter = new SectionIter(this);
-    done: for (let i = 0, pos = 0; ; ) {
+    done: for (let i = 0, pos = 0; ;) {
       let next = i == ranges.length ? 1e9 : ranges[i++];
       while (pos < next || pos == next && iter.len == 0) {
         if (iter.done)
@@ -1077,14 +1077,14 @@ function addInsert(values2, sections, value) {
 }
 function iterChanges(desc, f, individual) {
   let inserted = desc.inserted;
-  for (let posA = 0, posB = 0, i = 0; i < desc.sections.length; ) {
+  for (let posA = 0, posB = 0, i = 0; i < desc.sections.length;) {
     let len = desc.sections[i++], ins = desc.sections[i++];
     if (ins < 0) {
       posA += len;
       posB += len;
     } else {
       let endA = posA, endB = posB, text = Text.empty;
-      for (; ; ) {
+      for (; ;) {
         endA += len;
         endB += ins;
         if (ins && inserted)
@@ -1103,7 +1103,7 @@ function iterChanges(desc, f, individual) {
 function mapSet(setA, setB, before, mkSet = false) {
   let sections = [], insert2 = mkSet ? [] : null;
   let a2 = new SectionIter(setA), b = new SectionIter(setB);
-  for (let inserted = -1; ; ) {
+  for (let inserted = -1; ;) {
     if (a2.done && b.len || b.done && a2.len) {
       throw new Error("Mismatched change set lengths");
     } else if (a2.ins == -1 && b.ins == -1) {
@@ -1157,7 +1157,7 @@ function composeSets(setA, setB, mkSet = false) {
   let sections = [];
   let insert2 = mkSet ? [] : null;
   let a2 = new SectionIter(setA), b = new SectionIter(setB);
-  for (let open = false; ; ) {
+  for (let open = false; ;) {
     if (a2.done && b.done) {
       return insert2 ? ChangeSet.createSet(sections, insert2) : ChangeDesc.create(sections);
     } else if (a2.ins == 0) {
@@ -2127,7 +2127,7 @@ Transaction.addToHistory = /* @__PURE__ */ Annotation.define();
 Transaction.remote = /* @__PURE__ */ Annotation.define();
 function joinRanges(a2, b) {
   let result = [];
-  for (let iA = 0, iB = 0; ; ) {
+  for (let iA = 0, iB = 0; ;) {
     let from, to;
     if (iA < a2.length && (iB == b.length || b[iB] >= a2[iA])) {
       from = a2[iA++];
@@ -2237,7 +2237,7 @@ var none = [];
 function asArray(value) {
   return value == null ? none : Array.isArray(value) ? value : [value];
 }
-var CharCategory = /* @__PURE__ */ (function(CharCategory2) {
+var CharCategory = /* @__PURE__ */ (function (CharCategory2) {
   CharCategory2[CharCategory2["Word"] = 0] = "Word";
   CharCategory2[CharCategory2["Space"] = 1] = "Space";
   CharCategory2[CharCategory2["Other"] = 2] = "Other";
@@ -2615,7 +2615,7 @@ function combineConfig(configs, defaults3, combine = {}) {
       let value = config2[key], current = result[key];
       if (current === void 0)
         result[key] = value;
-      else if (current === value || value === void 0) ;
+      else if (current === value || value === void 0);
       else if (Object.hasOwnProperty.call(combine, key))
         result[key] = combine[key](current, value);
       else
@@ -2680,7 +2680,7 @@ var Chunk = class _Chunk {
   // `from` pos when `end == false`, `to` when `end == true`.
   findIndex(pos, side, end, startAt = 0) {
     let arr = end ? this.to : this.from;
-    for (let lo = startAt, hi = arr.length; ; ) {
+    for (let lo = startAt, hi = arr.length; ;) {
       if (lo == hi)
         return lo;
       let mid = lo + hi >> 1;
@@ -2896,7 +2896,7 @@ var RangeSet = class _RangeSet {
       return true;
     let sharedChunks = findSharedChunks(a2, b);
     let sideA = new SpanCursor(a2, sharedChunks, 0).goto(from), sideB = new SpanCursor(b, sharedChunks, 0).goto(from);
-    for (; ; ) {
+    for (; ;) {
       if (sideA.to != sideB.to || !sameValues(sideA.active, sideB.active) || sideA.point && (!sideB.point || !cmpVal(sideA.point, sideB.point)))
         return false;
       if (sideA.to > to)
@@ -2915,7 +2915,7 @@ var RangeSet = class _RangeSet {
   static spans(sets, from, to, iterator, minPointSize = -1) {
     let cursor = new SpanCursor(sets, null, minPointSize).goto(from), pos = from;
     let openRanges = cursor.openStart;
-    for (; ; ) {
+    for (; ;) {
       let curTo = Math.min(cursor.to, to);
       if (cursor.point) {
         let active = cursor.activeForPoint(cursor.to);
@@ -3122,7 +3122,7 @@ var LayerCursor = class {
       this.gotoInner(pos, side, true);
   }
   next() {
-    for (; ; ) {
+    for (; ;) {
       if (this.chunkIndex == this.layer.chunk.length) {
         this.from = this.to = 1e9;
         this.value = null;
@@ -3211,7 +3211,7 @@ var HeapCursor = class _HeapCursor {
   }
 };
 function heapBubble(heap, index) {
-  for (let cur2 = heap[index]; ; ) {
+  for (let cur2 = heap[index]; ;) {
     let childIndex = (index << 1) + 1;
     if (childIndex >= heap.length)
       break;
@@ -3280,7 +3280,7 @@ var SpanCursor = class {
     let from = this.to, wasPoint = this.point;
     this.point = null;
     let trackOpen = this.openStart < 0 ? [] : null;
-    for (; ; ) {
+    for (; ;) {
       let a2 = this.minActive;
       if (a2 > -1 && (this.activeTo[a2] - this.cursor.from || this.active[a2].endSide - this.cursor.startSide) < 0) {
         if (this.activeTo[a2] > from) {
@@ -3348,7 +3348,7 @@ function compare(a2, startA, b, startB, length, comparator) {
   let endB = startB + length;
   let pos = startB, dPos = startB - startA;
   let bounds = !!comparator.boundChange;
-  for (let boundChange = false; ; ) {
+  for (let boundChange = false; ;) {
     let dEnd = a2.to + dPos - b.to, diff = dEnd || a2.endSide - b.endSide;
     let end = diff < 0 ? a2.to + dPos : b.to, clipEnd = Math.min(end, endB);
     let point = a2.point || b.point;
@@ -3402,7 +3402,7 @@ function findMinIndex(value, array) {
 }
 function countColumn(string2, tabSize, to = string2.length) {
   let n = 0;
-  for (let i = 0; i < to && i < string2.length; ) {
+  for (let i = 0; i < to && i < string2.length;) {
     if (string2.charCodeAt(i) == 9) {
       n += tabSize - n % tabSize;
       i++;
@@ -3414,7 +3414,7 @@ function countColumn(string2, tabSize, to = string2.length) {
   return n;
 }
 function findColumn(string2, col, tabSize, strict) {
-  for (let i = 0, n = 0; ; ) {
+  for (let i = 0, n = 0; ;) {
     if (n >= col)
       return i;
     if (i == string2.length)
@@ -3879,7 +3879,7 @@ var WidgetType = class {
   destroy(dom) {
   }
 };
-var BlockType = /* @__PURE__ */ (function(BlockType2) {
+var BlockType = /* @__PURE__ */ (function (BlockType2) {
   BlockType2[BlockType2["Text"] = 0] = "Text";
   BlockType2[BlockType2["WidgetBefore"] = 1] = "WidgetBefore";
   BlockType2[BlockType2["WidgetAfter"] = 2] = "WidgetAfter";
@@ -4103,7 +4103,7 @@ function isBlockElement(node) {
   return node.nodeType == 1 && /^(DIV|P|LI|UL|OL|BLOCKQUOTE|DD|DT|H\d|SECTION|PRE)$/.test(node.nodeName);
 }
 function scanFor(node, off, targetNode, targetOff, dir) {
-  for (; ; ) {
+  for (; ;) {
     if (node == targetNode && off == targetOff)
       return true;
     if (off == (dir < 0 ? 0 : maxOffset(node))) {
@@ -4158,7 +4158,7 @@ function getScale(elt2, rect) {
 }
 function scrollRectIntoView(dom, rect, side, x, y, xMargin, yMargin, ltr) {
   let doc2 = dom.ownerDocument, win = doc2.defaultView || window;
-  for (let cur2 = dom, stop = false; cur2 && !stop; ) {
+  for (let cur2 = dom, stop = false; cur2 && !stop;) {
     if (cur2.nodeType == 1) {
       let bounding, top2 = cur2 == doc2.body;
       let scaleX = 1, scaleY = 1;
@@ -4256,7 +4256,7 @@ function scrollRectIntoView(dom, rect, side, x, y, xMargin, yMargin, ltr) {
 }
 function scrollableParents(dom, getX = true) {
   let doc2 = dom.ownerDocument, x = null, y = null;
-  for (let cur2 = dom.parentNode; cur2; ) {
+  for (let cur2 = dom.parentNode; cur2;) {
     if (cur2 == doc2.body || (!getX || x) && y) {
       break;
     } else if (cur2.nodeType == 1) {
@@ -4316,7 +4316,7 @@ function focusPreventScroll(dom) {
   } : void 0);
   if (!preventScrollSupported) {
     preventScrollSupported = false;
-    for (let i = 0; i < stack.length; ) {
+    for (let i = 0; i < stack.length;) {
       let elt2 = stack[i++], top2 = stack[i++], left = stack[i++];
       if (elt2.scrollTop != top2)
         elt2.scrollTop = top2;
@@ -4357,7 +4357,7 @@ function atElementStart(doc2, selection) {
   if (!node || selection.anchorNode != node || selection.anchorOffset != offset)
     return false;
   offset = Math.min(offset, maxOffset(node));
-  for (; ; ) {
+  for (; ;) {
     if (offset) {
       if (node.nodeType != 1)
         return false;
@@ -4382,7 +4382,7 @@ function isScrolledToBottom(elt2) {
   return elt2.scrollTop > Math.max(1, elt2.scrollHeight - elt2.clientHeight - 4);
 }
 function textNodeBefore(startNode, startOffset) {
-  for (let node = startNode, offset = startOffset; ; ) {
+  for (let node = startNode, offset = startOffset; ;) {
     if (node.nodeType == 3 && offset > 0) {
       return { node, offset };
     } else if (node.nodeType == 1 && offset > 0) {
@@ -4399,7 +4399,7 @@ function textNodeBefore(startNode, startOffset) {
   }
 }
 function textNodeAfter(startNode, startOffset) {
-  for (let node = startNode, offset = startOffset; ; ) {
+  for (let node = startNode, offset = startOffset; ;) {
     if (node.nodeType == 3 && offset < node.nodeValue.length) {
       return { node, offset };
     } else if (node.nodeType == 1 && offset < node.childNodes.length) {
@@ -4428,7 +4428,7 @@ var DOMPos = class _DOMPos {
     return new _DOMPos(dom.parentNode, domIndex(dom) + 1, precise);
   }
 };
-var Direction = /* @__PURE__ */ (function(Direction2) {
+var Direction = /* @__PURE__ */ (function (Direction2) {
   Direction2[Direction2["LTR"] = 0] = "LTR";
   Direction2[Direction2["RTL"] = 1] = "RTL";
   return Direction2;
@@ -4596,11 +4596,11 @@ function processBracketPairs(line, rFrom, rTo, isolates, outerType) {
 function processNeutrals(rFrom, rTo, isolates, outerType) {
   for (let iI = 0, prev = outerType; iI <= isolates.length; iI++) {
     let from = iI ? isolates[iI - 1].to : rFrom, to = iI < isolates.length ? isolates[iI].from : rTo;
-    for (let i = from; i < to; ) {
+    for (let i = from; i < to;) {
       let type = types[i];
       if (type == 256) {
         let end = i + 1;
-        for (; ; ) {
+        for (; ;) {
           if (end == to) {
             if (iI == isolates.length)
               break;
@@ -4615,7 +4615,7 @@ function processNeutrals(rFrom, rTo, isolates, outerType) {
         let beforeL = prev == 1;
         let afterL = (end < rTo ? types[end] : outerType) == 1;
         let replace2 = beforeL == afterL ? beforeL ? 1 : 2 : outerType;
-        for (let j = end, jI = iI, fromJ = jI ? isolates[jI - 1].to : rFrom; j > i; ) {
+        for (let j = end, jI = iI, fromJ = jI ? isolates[jI - 1].to : rFrom; j > i;) {
           if (j == fromJ) {
             j = isolates[--jI].from;
             fromJ = jI ? isolates[jI - 1].to : rFrom;
@@ -4633,7 +4633,7 @@ function processNeutrals(rFrom, rTo, isolates, outerType) {
 function emitSpans(line, from, to, level, baseLevel, isolates, order) {
   let ourType = level % 2 ? 2 : 1;
   if (level % 2 == baseLevel % 2) {
-    for (let iCh = from, iI = 0; iCh < to; ) {
+    for (let iCh = from, iI = 0; iCh < to;) {
       let sameDir = true, isNum = false;
       if (iI == isolates.length || iCh < isolates[iI].from) {
         let next = types[iCh];
@@ -4645,13 +4645,13 @@ function emitSpans(line, from, to, level, baseLevel, isolates, order) {
       let recurse = !sameDir && ourType == 1 ? [] : null;
       let localLevel = sameDir ? level : level + 1;
       let iScan = iCh;
-      run: for (; ; ) {
+      run: for (; ;) {
         if (iI < isolates.length && iScan == isolates[iI].from) {
           if (isNum)
             break run;
           let iso = isolates[iI];
           if (!sameDir)
-            for (let upto = iso.to, jI = iI + 1; ; ) {
+            for (let upto = iso.to, jI = iI + 1; ;) {
               if (upto == to)
                 break run;
               if (jI < isolates.length && isolates[jI].from == upto)
@@ -4685,7 +4685,7 @@ function emitSpans(line, from, to, level, baseLevel, isolates, order) {
       iCh = iScan;
     }
   } else {
-    for (let iCh = to, iI = isolates.length; iCh > from; ) {
+    for (let iCh = to, iI = isolates.length; iCh > from;) {
       let sameDir = true, isNum = false;
       if (!iI || iCh > isolates[iI - 1].to) {
         let next = types[iCh - 1];
@@ -4697,13 +4697,13 @@ function emitSpans(line, from, to, level, baseLevel, isolates, order) {
       let recurse = !sameDir && ourType == 1 ? [] : null;
       let localLevel = sameDir ? level : level + 1;
       let iScan = iCh;
-      run: for (; ; ) {
+      run: for (; ;) {
         if (iI && iScan == isolates[iI - 1].to) {
           if (isNum)
             break run;
           let iso = isolates[--iI];
           if (!sameDir)
-            for (let upto = iso.from, jI = iI; ; ) {
+            for (let upto = iso.from, jI = iI; ;) {
               if (upto == from)
                 break run;
               if (jI && isolates[jI - 1].to == upto)
@@ -4830,7 +4830,7 @@ function logException(state, exception, context) {
   let handler = state.facet(exceptionSink);
   if (handler.length)
     handler[0](exception);
-  else if (window.onerror && window.onerror(String(exception), context, void 0, void 0, exception)) ;
+  else if (window.onerror && window.onerror(String(exception), context, void 0, void 0, exception));
   else if (context)
     console.error(context + ":", exception);
   else
@@ -5029,14 +5029,14 @@ var ChangedRange = class _ChangedRange {
     if (ranges.length == 0)
       return diff;
     let result = [];
-    for (let dI = 0, rI = 0, off = 0; ; ) {
+    for (let dI = 0, rI = 0, off = 0; ;) {
       let nextD = dI < diff.length ? diff[dI].fromB : 1e9;
       let nextR = rI < ranges.length ? ranges[rI] : 1e9;
       let fromB = Math.min(nextD, nextR);
       if (fromB == 1e9)
         break;
       let fromA = fromB + off, toB = fromB, toA = fromA;
-      for (; ; ) {
+      for (; ;) {
         if (rI < ranges.length && ranges[rI] <= toB) {
           let end = ranges[rI + 1];
           rI += 2;
@@ -5305,7 +5305,7 @@ var DocTile = class extends CompositeTile {
     return true;
   }
   nearest(dom) {
-    for (; ; ) {
+    for (; ;) {
       if (!dom)
         return null;
       let tile = Tile.get(dom);
@@ -5315,7 +5315,7 @@ var DocTile = class extends CompositeTile {
     }
   }
   blockTiles(f) {
-    for (let stack = [], cur2 = this, i = 0, pos = 0; ; ) {
+    for (let stack = [], cur2 = this, i = 0, pos = 0; ;) {
       if (i == cur2.children.length) {
         if (!stack.length)
           return;
@@ -6070,7 +6070,7 @@ var TileUpdate = class {
   }
   run(changes, composition) {
     let compositionContext = composition && this.getCompositionContext(composition.text);
-    for (let posA = 0, posB = 0, i = 0; ; ) {
+    for (let posA = 0, posB = 0, i = 0; ;) {
       let next = i < changes.length ? changes[i++] : null;
       let skipA = next ? next.fromA : this.old.root.length;
       if (skipA > posA) {
@@ -6213,7 +6213,7 @@ var TileUpdate = class {
           this.text.skip(to2 - from2);
       },
       span: (from2, to2, active, openStart) => {
-        for (let pos = from2; pos < to2; ) {
+        for (let pos = from2; pos < to2;) {
           let chars = this.text.next(Math.min(512, to2 - pos));
           if (chars == null) {
             b.addLineStartIfNotCovered(pendingLineAttrs);
@@ -6251,7 +6251,7 @@ var TileUpdate = class {
         marks2.push(tile);
       else if (tile === null || tile === void 0 ? void 0 : tile.isLine())
         line = tile;
-      else if (tile instanceof BlockWrapperTile) ;
+      else if (tile instanceof BlockWrapperTile);
       else if (parent.nodeName == "DIV" && !line && parent != this.view.contentDOM)
         line = new LineTile(parent, lineBaseAttrs);
       else if (!line)
@@ -6477,7 +6477,7 @@ var DocView = class {
           dom.focus({ preventScroll: true });
         }
         let rawSel = getSelection(this.view.root);
-        if (!rawSel) ;
+        if (!rawSel);
         else if (main.empty) {
           if (browser.gecko) {
             let nextTo = nextToUneditable(anchor.node, anchor.offset);
@@ -6558,7 +6558,7 @@ var DocView = class {
         after = tile.dom.childNodes[offset];
       } else {
         let bias = maxOffset(node) == 0 ? 0 : offset == 0 ? -1 : 1;
-        for (; ; ) {
+        for (; ;) {
           let parent = node.parentNode;
           if (parent == tile.dom)
             break;
@@ -7068,7 +7068,7 @@ function moveToLineBoundary(view, start, forward, includeWrap) {
 function moveByChar(view, start, forward, by) {
   let line = view.state.doc.lineAt(start.head), spans = view.bidiSpans(line);
   let direction = view.textDirectionAt(line.from);
-  for (let cur2 = start, check = null; ; ) {
+  for (let cur2 = start, check = null; ;) {
     let next = moveVisually(line, spans, direction, cur2, forward), char = movedOver;
     if (!next) {
       if (line.number == (forward ? view.state.doc.lines : 1))
@@ -7129,7 +7129,7 @@ function moveVertically(view, start, forward, distance) {
   }
 }
 function skipAtomicRanges(atoms, pos, bias) {
-  for (; ; ) {
+  for (; ;) {
     let moved = 0;
     for (let set of atoms) {
       set.between(pos - 1, pos + 1, (from, to, value) => {
@@ -7179,7 +7179,7 @@ var PosAssoc = class {
 function posAtCoords(view, coords, precise, scanY) {
   let content2 = view.contentDOM.getBoundingClientRect(), docTop = content2.top + view.viewState.paddingTop;
   let { x, y } = coords, yOffset = y - docTop, block;
-  for (; ; ) {
+  for (; ;) {
     if (yOffset < 0)
       return new PosAssoc(0, 1);
     if (yOffset > view.viewState.docHeight)
@@ -7381,7 +7381,7 @@ var DOMReader = class {
     if (!start)
       return this;
     let parent = start.parentNode;
-    for (let cur2 = start; ; ) {
+    for (let cur2 = start; ;) {
       this.findPointBefore(parent, cur2);
       let oldLen = this.text.length;
       this.readNode(cur2);
@@ -7404,7 +7404,7 @@ var DOMReader = class {
     for (let point of this.points)
       if (point.node == node)
         point.pos = this.text.length + Math.min(point.offset, text.length);
-    for (let off = 0, re = this.lineSeparator ? null : /\r\n?|\n/g; ; ) {
+    for (let off = 0, re = this.lineSeparator ? null : /\r\n?|\n/g; ;) {
       let nextBreak = -1, breakSize = 1, m;
       if (this.lineSeparator) {
         nextBreak = text.indexOf(this.lineSeparator, off);
@@ -7430,7 +7430,7 @@ var DOMReader = class {
     let fromView = tile && tile.overrideDOMText;
     if (fromView != null) {
       this.findPointInside(node, fromView.length);
-      for (let i = fromView.iter(); !i.next().done; ) {
+      for (let i = fromView.iter(); !i.next().done;) {
         if (i.lineBreak)
           this.lineBreak();
         else
@@ -7457,7 +7457,7 @@ var DOMReader = class {
   }
 };
 function isAtEnd(parent, node, offset) {
-  for (; ; ) {
+  for (; ;) {
     if (!node || offset < maxOffset(node))
       return false;
     if (node == parent)
@@ -7633,8 +7633,8 @@ function applyDOMChangeInner(view, change, newSel, lastKey = -1) {
     return true;
   let sel = view.state.selection.main;
   if (browser.android && (change.to == sel.to && // GBoard will sometimes remove a space it just inserted
-  // after a completion when you press enter
-  (change.from == sel.from || change.from == sel.from - 1 && view.state.sliceDoc(change.from, sel.from) == " ") && change.insert.length == 1 && change.insert.lines == 2 && dispatchKey(view.contentDOM, "Enter", 13) || (change.from == sel.from - 1 && change.to == sel.to && change.insert.length == 0 || lastKey == 8 && change.insert.length < change.to - change.from && change.to > sel.head) && dispatchKey(view.contentDOM, "Backspace", 8) || change.from == sel.from && change.to == sel.to + 1 && change.insert.length == 0 && dispatchKey(view.contentDOM, "Delete", 46)))
+    // after a completion when you press enter
+    (change.from == sel.from || change.from == sel.from - 1 && view.state.sliceDoc(change.from, sel.from) == " ") && change.insert.length == 1 && change.insert.lines == 2 && dispatchKey(view.contentDOM, "Enter", 13) || (change.from == sel.from - 1 && change.to == sel.to && change.insert.length == 0 || lastKey == 8 && change.insert.length < change.to - change.from && change.to > sel.head) && dispatchKey(view.contentDOM, "Backspace", 8) || change.from == sel.from && change.to == sel.to + 1 && change.insert.length == 0 && dispatchKey(view.contentDOM, "Delete", 46)))
     return true;
   let text = change.insert.toString();
   if (view.inputState.composing >= 0)
@@ -7680,10 +7680,10 @@ function applyDefaultInsert(view, change, newSel) {
           return { changes, range: mainSel || range.map(changes) };
         let to = range.to - offset, from = to - replaced.length;
         if (view.state.sliceDoc(from, to) != replaced || // Unfortunately, there's no way to make multiple
-        // changes in the same node work without aborting
-        // composition, so cursors in the composition range are
-        // ignored.
-        to >= compositionRange.from && from <= compositionRange.to)
+          // changes in the same node work without aborting
+          // composition, so cursors in the composition range are
+          // ignored.
+          to >= compositionRange.from && from <= compositionRange.to)
           return { range };
         let rangeChanges = startState.changes({ from, to, insert: change.insert }), selOff = range.to - sel.to;
         return {
@@ -8646,7 +8646,7 @@ var BlockInfo = class _BlockInfo {
     return new _BlockInfo(this.from, this.length + other.length, this.top, this.height + other.height, content2);
   }
 };
-var QueryType = /* @__PURE__ */ (function(QueryType3) {
+var QueryType = /* @__PURE__ */ (function (QueryType3) {
   QueryType3[QueryType3["ByPos"] = 0] = "ByPos";
   QueryType3[QueryType3["ByHeight"] = 1] = "ByHeight";
   QueryType3[QueryType3["ByPosNoHeight"] = 2] = "ByPosNoHeight";
@@ -8718,7 +8718,7 @@ var HeightMap = class _HeightMap {
     if (nodes.length == 1)
       return nodes[0];
     let i = 0, j = nodes.length, before = 0, after = 0;
-    for (; ; ) {
+    for (; ;) {
       if (i == j) {
         if (before > after * 2) {
           let split = nodes[i - 1];
@@ -8896,7 +8896,7 @@ var HeightMapGap = class _HeightMapGap extends HeightMap {
     from = Math.max(from, offset);
     to = Math.min(to, offset + this.length);
     let { firstLine, perLine, perChar } = this.heightMetrics(oracle, offset);
-    for (let pos = from, lineTop = top2; pos <= to; ) {
+    for (let pos = from, lineTop = top2; pos <= to;) {
       let line = oracle.doc.lineAt(pos);
       if (pos == from) {
         let linesAbove = line.number - firstLine;
@@ -9237,7 +9237,7 @@ function visiblePixelRange(dom, paddingTop) {
   let doc2 = dom.ownerDocument, win = doc2.defaultView || window;
   let left = Math.max(0, rect.left), right = Math.min(win.innerWidth, rect.right);
   let top2 = Math.max(0, rect.top), bottom = Math.min(win.innerHeight, rect.bottom);
-  for (let parent = dom.parentNode; parent && parent != doc2.body; ) {
+  for (let parent = dom.parentNode; parent && parent != doc2.body;) {
     if (parent.nodeType == 1) {
       let elt2 = parent;
       let style = window.getComputedStyle(elt2);
@@ -10211,7 +10211,7 @@ var DOMObserver = class {
         this.flush();
     });
     if (window.EditContext && browser.android && view.constructor.EDIT_CONTEXT !== false && // Chrome <126 doesn't support inverted selections in edit context (#1392)
-    !(browser.chrome && browser.chrome_version < 126)) {
+      !(browser.chrome && browser.chrome_version < 126)) {
       this.editContext = new EditContextManager(view);
       if (view.state.facet(editable))
         view.contentDOM.editContext = this.editContext.editContext;
@@ -10311,7 +10311,7 @@ var DOMObserver = class {
       return;
     }
     if ((browser.ie && browser.ie_version <= 11 || browser.android && browser.chrome) && !view.state.selection.main.empty && // (Selection.isCollapsed isn't reliable on IE)
-    sel.focusNode && isEquivalentPosition(sel.focusNode, sel.focusOffset, sel.anchorNode, sel.anchorOffset))
+      sel.focusNode && isEquivalentPosition(sel.focusNode, sel.focusOffset, sel.anchorNode, sel.anchorOffset))
       this.flushSoon();
     else
       this.flush(false);
@@ -10345,7 +10345,7 @@ var DOMObserver = class {
   listenForScroll() {
     this.parentCheck = -1;
     let i = 0, changed = null;
-    for (let dom = this.dom; dom; ) {
+    for (let dom = this.dom; dom;) {
       if (dom.nodeType == 1) {
         if (!changed && i < this.scrollTargets.length && this.scrollTargets[i] == dom)
           i++;
@@ -10712,12 +10712,14 @@ var EditContextManager = class {
     };
     for (let event in this.handlers)
       context.addEventListener(event, this.handlers[event]);
-    this.measureReq = { read: (view2) => {
-      this.editContext.updateControlBounds(view2.contentDOM.getBoundingClientRect());
-      let sel = getSelection(view2.root);
-      if (sel && sel.rangeCount)
-        this.editContext.updateSelectionBounds(sel.getRangeAt(0).getBoundingClientRect());
-    } };
+    this.measureReq = {
+      read: (view2) => {
+        this.editContext.updateControlBounds(view2.contentDOM.getBoundingClientRect());
+        let sel = getSelection(view2.root);
+        if (sel && sel.rangeCount)
+          this.editContext.updateSelectionBounds(sel.getRangeAt(0).getBoundingClientRect());
+      }
+    };
   }
   applyEdits(update) {
     let off = 0, abort = false, pending = this.pendingContextChange;
@@ -11985,8 +11987,8 @@ function runHandlers(map, event, view, scope) {
     if (runFor(scopeObj[prefix + modifiers(name2, event, !isChar)])) {
       handled = true;
     } else if (isChar && (event.altKey || event.metaKey || event.ctrlKey) && // Ctrl-Alt may be used for AltGr on Windows
-    !(browser.windows && event.ctrlKey && event.altKey) && // Alt-combinations on macOS tend to be typed characters
-    !(browser.mac && event.altKey && !(event.ctrlKey || event.metaKey)) && (baseName = base[event.keyCode]) && baseName != name2) {
+      !(browser.windows && event.ctrlKey && event.altKey) && // Alt-combinations on macOS tend to be typed characters
+      !(browser.mac && event.altKey && !(event.ctrlKey || event.metaKey)) && (baseName = base[event.keyCode]) && baseName != name2) {
       if (runFor(scopeObj[prefix + modifiers(baseName, event, true)])) {
         handled = true;
       } else if (event.shiftKey && (shiftName = shift[event.keyCode]) != name2 && shiftName != baseName && runFor(scopeObj[prefix + modifiers(shiftName, event, false)])) {
@@ -12129,7 +12131,7 @@ function rectanglesForRange(view, className, range) {
     let start = from2 !== null && from2 !== void 0 ? from2 : line.from, end = to2 !== null && to2 !== void 0 ? to2 : line.to;
     for (let r of view.visibleRanges)
       if (r.to > start && r.from < end) {
-        for (let pos = Math.max(r.from, start), endPos = Math.min(r.to, end); ; ) {
+        for (let pos = Math.max(r.from, start), endPos = Math.min(r.to, end); ;) {
           let docLine = view.state.doc.lineAt(pos);
           for (let span of view.bidiSpans(docLine)) {
             let spanFrom = span.from + docLine.from, spanTo = span.to + docLine.from;
@@ -13364,14 +13366,16 @@ function showDialog(view, config2) {
     view.dispatch({ effects: StateEffect.appendConfig.of(dialogField.init(() => [panelCtor])) });
   }
   let close = closeDialogEffect.of(panelCtor);
-  return { close, result: promise.then((form) => {
-    let queue = view.win.queueMicrotask || ((f) => view.win.setTimeout(f, 10));
-    queue(() => {
-      if (view.state.field(dialogField).indexOf(panelCtor) > -1)
-        view.dispatch({ effects: close });
-    });
-    return form;
-  }) };
+  return {
+    close, result: promise.then((form) => {
+      let queue = view.win.queueMicrotask || ((f) => view.win.setTimeout(f, 10));
+      queue(() => {
+        if (view.state.field(dialogField).indexOf(panelCtor) > -1)
+          view.dispatch({ effects: close });
+      });
+      return form;
+    })
+  };
 }
 var dialogField = /* @__PURE__ */ StateField.define({
   create() {
@@ -13787,7 +13791,7 @@ var GutterElement = class {
   }
   setMarkers(view, markers) {
     let cls = "cm-gutterElement", domPos = this.dom.firstChild;
-    for (let iNew = 0, iOld = 0; ; ) {
+    for (let iNew = 0, iOld = 0; ;) {
       let skipTo = iOld, marker = iNew < markers.length ? markers[iNew++] : null, matched = false;
       if (marker) {
         let c = marker.elementClass;
@@ -13976,11 +13980,13 @@ var NodeProp = class {
 NodeProp.closedBy = new NodeProp({ deserialize: (str) => str.split(" ") });
 NodeProp.openedBy = new NodeProp({ deserialize: (str) => str.split(" ") });
 NodeProp.group = new NodeProp({ deserialize: (str) => str.split(" ") });
-NodeProp.isolate = new NodeProp({ deserialize: (value) => {
-  if (value && value != "rtl" && value != "ltr" && value != "auto")
-    throw new RangeError("Invalid value for isolate: " + value);
-  return value || "auto";
-} });
+NodeProp.isolate = new NodeProp({
+  deserialize: (value) => {
+    if (value && value != "rtl" && value != "ltr" && value != "auto")
+      throw new RangeError("Invalid value for isolate: " + value);
+    return value || "auto";
+  }
+});
 NodeProp.contextHash = new NodeProp({ perNode: true });
 NodeProp.lookAhead = new NodeProp({ perNode: true });
 NodeProp.mounted = new NodeProp({ perNode: true });
@@ -14141,7 +14147,7 @@ var NodeSet = class _NodeSet {
 var CachedNode = /* @__PURE__ */ new WeakMap();
 var CachedInnerNode = /* @__PURE__ */ new WeakMap();
 var IterMode;
-(function(IterMode2) {
+(function (IterMode2) {
   IterMode2[IterMode2["ExcludeBuffers"] = 1] = "ExcludeBuffers";
   IterMode2[IterMode2["IncludeAnonymous"] = 2] = "IncludeAnonymous";
   IterMode2[IterMode2["IgnoreMounts"] = 4] = "IgnoreMounts";
@@ -14257,14 +14263,14 @@ var Tree = class _Tree {
   iterate(spec) {
     let { enter, leave, from = 0, to = this.length } = spec;
     let mode = spec.mode || 0, anon = (mode & IterMode.IncludeAnonymous) > 0;
-    for (let c = this.cursor(mode | IterMode.IncludeAnonymous); ; ) {
+    for (let c = this.cursor(mode | IterMode.IncludeAnonymous); ;) {
       let entered = false;
       if (c.from <= to && c.to >= from && (!anon && c.type.isAnonymous || enter(c) !== false)) {
         if (c.firstChild())
           continue;
         entered = true;
       }
-      for (; ; ) {
+      for (; ;) {
         if (entered && leave && (anon || !c.type.isAnonymous))
           leave(c);
         if (c.nextSibling())
@@ -14358,7 +14364,7 @@ var TreeBuffer = class _TreeBuffer {
   */
   toString() {
     let result = [];
-    for (let index = 0; index < this.buffer.length; ) {
+    for (let index = 0; index < this.buffer.length;) {
       result.push(this.childString(index));
       index = this.buffer[index + 3];
     }
@@ -14402,7 +14408,7 @@ var TreeBuffer = class _TreeBuffer {
   slice(startI, endI, from) {
     let b = this.buffer;
     let copy = new Uint16Array(endI - startI), len = 0;
-    for (let i = startI, j = 0; i < endI; ) {
+    for (let i = startI, j = 0; i < endI;) {
       copy[j++] = b[i++];
       copy[j++] = b[i++] - from;
       let to = copy[j++] = b[i++] - from;
@@ -14442,7 +14448,7 @@ function resolveNode(node, pos, side, overlays) {
       if (scan instanceof TreeNode && scan.index < 0 && ((_a2 = parent.enter(pos, side, mode)) === null || _a2 === void 0 ? void 0 : _a2.from) != scan.from)
         node = parent;
     }
-  for (; ; ) {
+  for (; ;) {
     let inner = node.enter(pos, side, mode);
     if (!inner)
       return node;
@@ -14509,7 +14515,7 @@ var TreeNode = class _TreeNode extends BaseNode {
     return this.from + this._tree.length;
   }
   nextChild(i, dir, pos, side, mode = 0) {
-    for (let parent = this; ; ) {
+    for (let parent = this; ;) {
       for (let { children, positions } = parent._tree, e = dir > 0 ? children.length : -1; i != e; i += dir) {
         let next = children[i], start = positions[i] + parent.from, mounted;
         if (!(mode & IterMode.EnterBracketed && next instanceof Tree && (mounted = MountedTree.get(next)) && !mounted.overlay && mounted.bracketed && pos >= start && pos <= start + next.length) && !checkSide(side, pos, start, start + next.length))
@@ -14634,12 +14640,12 @@ function getChildren(node, type, before, after) {
   if (!cur2.firstChild())
     return result;
   if (before != null)
-    for (let found = false; !found; ) {
+    for (let found = false; !found;) {
       found = cur2.type.is(before);
       if (!cur2.nextSibling())
         return result;
     }
-  for (; ; ) {
+  for (; ;) {
     if (after != null && cur2.type.is(after))
       return result;
     if (cur2.type.is(type))
@@ -15046,7 +15052,7 @@ var TreeCursor = class {
       /* Side.DontCare */
     ))
       return true;
-    for (; ; ) {
+    for (; ;) {
       if (this.sibling(dir))
         return true;
       if (this.atLastNode(dir) || !this.parent())
@@ -15094,7 +15100,7 @@ var TreeCursor = class {
       return this._tree;
     let cache3 = this.bufferNode, result = null, depth = 0;
     if (cache3 && cache3.context == this.buffer) {
-      scan: for (let index = this.index, d = this.stack.length; d >= 0; ) {
+      scan: for (let index = this.index, d = this.stack.length; d >= 0;) {
         for (let c = cache3; c; c = c._parent)
           if (c.index == index) {
             if (index == this.index)
@@ -15125,7 +15131,7 @@ var TreeCursor = class {
   skipped, and `leave` isn't called for it.
   */
   iterate(enter, leave) {
-    for (let depth = 0; ; ) {
+    for (let depth = 0; ;) {
       let mustLeave = false;
       if (this.type.isAnonymous || enter(this) !== false) {
         if (this.firstChild()) {
@@ -15135,7 +15141,7 @@ var TreeCursor = class {
         if (!this.type.isAnonymous)
           mustLeave = true;
       }
-      for (; ; ) {
+      for (; ;) {
         if (mustLeave && leave)
           leave(this);
         mustLeave = this.type.isAnonymous;
@@ -15309,7 +15315,7 @@ function buildTree(data2) {
     let fork = cursor.fork();
     let size = 0, start = 0, skip = 0, minStart = fork.end - maxBufferLength;
     let result = { size: 0, start: 0, skip: 0 };
-    scan: for (let minPos = fork.pos - maxSize; fork.pos > minPos; ) {
+    scan: for (let minPos = fork.pos - maxSize; fork.pos > minPos;) {
       let nodeSize2 = fork.size;
       if (fork.id == inRepeat && nodeSize2 >= 0) {
         result.size = size;
@@ -15403,7 +15409,7 @@ function balanceRange(balanceType, children, positions, from, to, start, length,
   );
   let localChildren = [], localPositions = [];
   function divide(children2, positions2, from2, to2, offset) {
-    for (let i = from2; i < to2; ) {
+    for (let i = from2; i < to2;) {
       let groupFrom = i, groupStart = positions2[i], groupSize = nodeSize(balanceType, children2[i]);
       i++;
       for (; i < to2; i++) {
@@ -15576,7 +15582,7 @@ var Parser = class {
   */
   parse(input, fragments, ranges) {
     let parse = this.startParse(input, fragments, ranges);
-    for (; ; ) {
+    for (; ;) {
       let done = parse.advance();
       if (done)
         return done;
@@ -15694,7 +15700,7 @@ var MixedParse = class {
     let overlay = null;
     let covered = null;
     let cursor = new TreeCursor(new TreeNode(this.baseTree, this.ranges[0].from, 0, null), IterMode.IncludeAnonymous | IterMode.IgnoreMounts);
-    scan: for (let nest, isCovered; ; ) {
+    scan: for (let nest, isCovered; ;) {
       let enter = true, range;
       if (this.stoppedAt != null && cursor.from >= this.stoppedAt) {
         enter = false;
@@ -15750,7 +15756,7 @@ var MixedParse = class {
         if (covered)
           covered.depth++;
       } else {
-        for (; ; ) {
+        for (; ;) {
           if (cursor.nextSibling())
             break;
           if (!cursor.parent())
@@ -15823,7 +15829,7 @@ var StructureCursor = class {
   moveTo(pos) {
     let { cursor } = this, p = pos - this.offset;
     while (!this.done && cursor.from < p) {
-      if (cursor.to >= pos && cursor.enter(p, 1, IterMode.IgnoreOverlays | IterMode.ExcludeBuffers)) ;
+      if (cursor.to >= pos && cursor.enter(p, 1, IterMode.IgnoreOverlays | IterMode.ExcludeBuffers));
       else if (cursor.to <= pos) {
         if (!cursor.next(false))
           this.done = true;
@@ -15835,7 +15841,7 @@ var StructureCursor = class {
   hasNode(cursor) {
     this.moveTo(cursor.from);
     if (!this.done && this.cursor.from + this.offset == cursor.from && this.cursor.tree) {
-      for (let tree = this.cursor.tree; ; ) {
+      for (let tree = this.cursor.tree; ;) {
         if (tree == cursor.tree)
           return true;
         if (tree.children.length && tree.positions[0] == 0 && tree.children[0] instanceof Tree)
@@ -15930,7 +15936,7 @@ function punchRanges(outer, ranges) {
 function findCoverChanges(a2, b, from, to) {
   let iA = 0, iB = 0, inA = false, inB = false, pos = -1e9;
   let result = [];
-  for (; ; ) {
+  for (; ;) {
     let nextA = iA == a2.length ? 1e9 : inA ? a2[iA].to : a2[iA].from;
     let nextB = iB == b.length ? 1e9 : inB ? b[iB].to : b[iB].from;
     if (inA != inB) {
@@ -16082,7 +16088,7 @@ function styleTags(spec) {
     for (let part of prop.split(" "))
       if (part) {
         let pieces = [], mode = 2, rest = part;
-        for (let pos = 0; ; ) {
+        for (let pos = 0; ;) {
           if (rest == "..." && pos > 0 && pos + 3 == part.length) {
             mode = 1;
             break;
@@ -16728,9 +16734,11 @@ var Language = class {
     this.data = data2;
     this.name = name2;
     if (!EditorState.prototype.hasOwnProperty("tree"))
-      Object.defineProperty(EditorState.prototype, "tree", { get() {
-        return syntaxTree(this);
-      } });
+      Object.defineProperty(EditorState.prototype, "tree", {
+        get() {
+          return syntaxTree(this);
+        }
+      });
     this.parser = parser9;
     this.extension = [
       language.of(this),
@@ -16922,7 +16930,7 @@ var ParseContext = class _ParseContext {
         this.parse = this.startParse();
       if (upto != null && (this.parse.stoppedAt == null || this.parse.stoppedAt > upto) && upto < this.state.doc.length)
         this.parse.stopAt(upto);
-      for (; ; ) {
+      for (; ;) {
         let done = this.parse.advance();
         if (done) {
           this.fragments = this.withoutTempSkipped(TreeFragment.addTree(done, this.fragments, this.parse.stoppedAt != null));
@@ -16967,7 +16975,7 @@ var ParseContext = class _ParseContext {
     }
   }
   withoutTempSkipped(fragments) {
-    for (let r; r = this.tempSkipped.pop(); )
+    for (let r; r = this.tempSkipped.pop();)
       fragments = cutFragments(fragments, r.from, r.to);
     return fragments;
   }
@@ -17213,9 +17221,11 @@ var parseWorker = /* @__PURE__ */ ViewPlugin.fromClass(class ParseWorker {
     return !!(this.working || this.workScheduled > 0);
   }
 }, {
-  eventHandlers: { focus() {
-    this.scheduleWork();
-  } }
+  eventHandlers: {
+    focus() {
+      this.scheduleWork();
+    }
+  }
 });
 var language = /* @__PURE__ */ Facet.define({
   combine(languages) {
@@ -17514,7 +17524,7 @@ var TreeIndentContext = class _TreeIndentContext extends IndentContext {
   */
   baseIndentFor(node) {
     let line = this.state.doc.lineAt(node.from);
-    for (; ; ) {
+    for (; ;) {
       let atBreak = node.resolve(line.from);
       while (atBreak.parent && atBreak.parent.from == atBreak.from)
         atBreak = atBreak.parent;
@@ -17546,7 +17556,7 @@ function bracketedAligned(context) {
   let sim = context.options.simulateBreak;
   let openLine = context.state.doc.lineAt(openToken.from);
   let lineEnd2 = sim == null || sim <= openLine.from ? openLine.to : Math.min(openLine.to, sim);
-  for (let pos = openToken.to; ; ) {
+  for (let pos = openToken.to; ;) {
     let next = tree.childAfter(pos);
     if (!next || next == last)
       return null;
@@ -17699,7 +17709,7 @@ var foldState = /* @__PURE__ */ StateField.define({
     if (!Array.isArray(value) || value.length % 2)
       throw new RangeError("Invalid JSON for fold state");
     let ranges = [];
-    for (let i = 0; i < value.length; ) {
+    for (let i = 0; i < value.length;) {
       let from = value[i++], to = value[i++];
       if (typeof from != "number" || typeof to != "number")
         throw new RangeError("Invalid JSON for fold state");
@@ -17769,7 +17779,7 @@ function announceFold(view, range, fold = true) {
 }
 var foldAll = (view) => {
   let { state } = view, effects = [];
-  for (let pos = 0; pos < state.doc.length; ) {
+  for (let pos = 0; pos < state.doc.length;) {
     let line = view.lineBlockAt(pos), range = foldable(state, line.from, line.to);
     if (range)
       effects.push(foldEffect.of(range));
@@ -17831,11 +17841,13 @@ function widgetToDOM(view, prepared) {
   element.onclick = onclick;
   return element;
 }
-var foldWidget = /* @__PURE__ */ Decoration.replace({ widget: /* @__PURE__ */ new class extends WidgetType {
-  toDOM(view) {
-    return widgetToDOM(view, null);
-  }
-}() });
+var foldWidget = /* @__PURE__ */ Decoration.replace({
+  widget: /* @__PURE__ */ new class extends WidgetType {
+    toDOM(view) {
+      return widgetToDOM(view, null);
+    }
+  }()
+});
 var PreparedFoldWidget = class extends WidgetType {
   constructor(value) {
     super();
@@ -18253,7 +18265,7 @@ function matchPlainBrackets(state, pos, dir, tree, tokenType, maxScanDistance, b
     return null;
   let startToken = { from: dir < 0 ? pos - 1 : pos, to: dir > 0 ? pos + 1 : pos };
   let iter = state.doc.iterRange(pos, dir > 0 ? state.doc.length : 0), depth = 0;
-  for (let distance = 0; !iter.next().done && distance <= maxScanDistance; ) {
+  for (let distance = 0; !iter.next().done && distance <= maxScanDistance;) {
     let text = iter.value;
     if (dir < 0)
       distance += text.length;
@@ -18435,11 +18447,13 @@ function changeBlockComment(option, state, ranges = state.selection.ranges) {
     return null;
   let comments = ranges.map((r, i) => findBlockComment(state, tokens[i], r.from, r.to));
   if (option != 2 && !comments.every((c) => c)) {
-    return { changes: state.changes(ranges.map((range, i) => {
-      if (comments[i])
-        return [];
-      return [{ from: range.from, insert: tokens[i].open + " " }, { from: range.to, insert: " " + tokens[i].close }];
-    })) };
+    return {
+      changes: state.changes(ranges.map((range, i) => {
+        if (comments[i])
+          return [];
+        return [{ from: range.from, insert: tokens[i].open + " " }, { from: range.to, insert: " " + tokens[i].close }];
+      }))
+    };
   } else if (option != 1 && comments.some((c) => c)) {
     let changes = [];
     for (let i = 0, comment2; i < comments.length; i++)
@@ -18456,7 +18470,7 @@ function changeLineComment(option, state, ranges = state.selection.ranges) {
   let prevLine = -1;
   ranges: for (let { from, to } of ranges) {
     let startI = lines.length, minIndent = 1e9, token;
-    for (let pos = from; pos <= to; ) {
+    for (let pos = from; pos <= to;) {
       let line = state.doc.lineAt(pos);
       if (token == void 0) {
         token = getConfig(state, line.from).line;
@@ -18572,7 +18586,7 @@ function history(config2 = {}) {
   ];
 }
 function cmd(side, selection) {
-  return function({ state, dispatch }) {
+  return function ({ state, dispatch }) {
     if (!selection && state.readOnly)
       return false;
     let historyState = state.field(historyField_, false);
@@ -18640,7 +18654,7 @@ function isAdjacent(a2, b) {
   let ranges = [], isAdjacent2 = false;
   a2.iterChangedRanges((f, t2) => ranges.push(f, t2));
   b.iterChangedRanges((_f, _t, f, t2) => {
-    for (let i = 0; i < ranges.length; ) {
+    for (let i = 0; i < ranges.length;) {
       let from = ranges[i++], to = ranges[i++];
       if (t2 >= from && f <= to)
         isAdjacent2 = true;
@@ -18714,7 +18728,7 @@ var HistoryState = class _HistoryState {
   addChanges(event, time, userEvent, config2, tr) {
     let done = this.done, lastEvent = done[done.length - 1];
     if (lastEvent && lastEvent.changes && !lastEvent.changes.empty && event.changes && (!userEvent || joinableUserEvent.test(userEvent)) && (!lastEvent.selectionsAfter.length && time - this.prevTime < config2.newGroupDelay && config2.joinToEvent(tr, isAdjacent(lastEvent.changes, event.changes)) || // For compose (but not compose.start) events, always join with previous event
-    userEvent == "input.type.compose")) {
+      userEvent == "input.type.compose")) {
       done = updateBranch(done, done.length - 1, config2.minDepth, new HistEvent(event.changes.compose(lastEvent.changes), conc(StateEffect.mapEffects(event.effects, lastEvent.changes), lastEvent.effects), lastEvent.mapped, lastEvent.startSelection, none2));
     } else {
       done = updateBranch(done, done.length, config2.minDepth, event);
@@ -18807,7 +18821,7 @@ function interestingNode(state, node, bracketProp) {
 function moveBySyntax(state, start, forward) {
   let pos = syntaxTree(state).resolveInner(start.head);
   let bracketProp = forward ? NodeProp.closedBy : NodeProp.openedBy;
-  for (let at = start.head; ; ) {
+  for (let at = start.head; ;) {
     let next = forward ? pos.childAfter(at) : pos.childBefore(at);
     if (!next)
       break;
@@ -18997,7 +19011,7 @@ function addCursorVertically(view, forward) {
   for (let range of state.selection.ranges) {
     let line = state.doc.lineAt(range.head);
     if (forward ? line.to < view.state.doc.length : line.from > 0)
-      for (let cur2 = range; ; ) {
+      for (let cur2 = range; ;) {
         let next = view.moveVertically(cur2, forward);
         if (next.head < line.from || next.head > line.to) {
           if (!ranges.some((r) => r.head == next.head))
@@ -19092,7 +19106,7 @@ var deleteCharForward = (view) => deleteByChar(view, true, false);
 var deleteByGroup = (target, forward) => deleteBy(target, (range) => {
   let pos = range.head, { state } = target, line = state.doc.lineAt(pos);
   let categorize = state.charCategorizer(pos);
-  for (let cat = null; ; ) {
+  for (let cat = null; ;) {
     if (pos == (forward ? line.to : line.from)) {
       if (pos == range.head && line.number != (forward ? state.doc.lines : 1))
         pos += forward ? 1 : -1;
@@ -19291,7 +19305,7 @@ function changeBySelectedLine(state, f) {
   let atLine = -1;
   return state.changeByRange((range) => {
     let changes = [];
-    for (let pos = range.from; pos <= range.to; ) {
+    for (let pos = range.from; pos <= range.to;) {
       let line = state.doc.lineAt(pos);
       if (line.number > atLine && (range.empty || range.to > line.from)) {
         f(line, changes, range);
@@ -19310,10 +19324,12 @@ var indentSelection = ({ state, dispatch }) => {
   if (state.readOnly)
     return false;
   let updated = /* @__PURE__ */ Object.create(null);
-  let context = new IndentContext(state, { overrideIndentation: (start) => {
-    let found = updated[start];
-    return found == null ? -1 : found;
-  } });
+  let context = new IndentContext(state, {
+    overrideIndentation: (start) => {
+      let found = updated[start];
+      return found == null ? -1 : found;
+    }
+  });
   let changes = changeBySelectedLine(state, (line, changes2, range) => {
     let indent2 = getIndentation(context, line.from);
     if (indent2 == null)
@@ -19373,7 +19389,7 @@ var emacsStyleKeymap = [
   { key: "Ctrl-t", run: transposeChars },
   { key: "Ctrl-v", run: cursorPageDown }
 ];
-var standardKeymap = /* @__PURE__ */ [
+var standardKeymap = /* @__PURE__ */[
   { key: "ArrowLeft", run: cursorCharLeft, shift: selectCharLeft, preventDefault: true },
   { key: "Mod-ArrowLeft", mac: "Alt-ArrowLeft", run: cursorGroupLeft, shift: selectGroupLeft, preventDefault: true },
   { mac: "Cmd-ArrowLeft", run: cursorLineBoundaryLeft, shift: selectLineBoundaryLeft, preventDefault: true },
@@ -19401,7 +19417,7 @@ var standardKeymap = /* @__PURE__ */ [
   { mac: "Mod-Backspace", run: deleteLineBoundaryBackward, preventDefault: true },
   { mac: "Mod-Delete", run: deleteLineBoundaryForward, preventDefault: true }
 ].concat(/* @__PURE__ */ emacsStyleKeymap.map((b) => ({ mac: b.key, run: b.run, shift: b.shift })));
-var defaultKeymap = /* @__PURE__ */ [
+var defaultKeymap = /* @__PURE__ */[
   { key: "Alt-ArrowLeft", mac: "Ctrl-ArrowLeft", run: cursorSyntaxLeft, shift: selectSyntaxLeft },
   { key: "Alt-ArrowRight", mac: "Ctrl-ArrowRight", run: cursorSyntaxRight, shift: selectSyntaxRight },
   { key: "Alt-ArrowUp", run: moveLineUp },
@@ -19587,7 +19603,7 @@ var FuzzyMatcher = class {
     this.byWord = [];
     this.score = 0;
     this.matched = [];
-    for (let p = 0; p < pattern.length; ) {
+    for (let p = 0; p < pattern.length;) {
       let char = codePointAt2(pattern, p), size = codePointSize2(char);
       this.chars.push(char);
       let part = pattern.slice(p, p + size), upper = part.toUpperCase();
@@ -19617,7 +19633,7 @@ var FuzzyMatcher = class {
     if (chars.length == 1) {
       let first = codePointAt2(word, 0), firstSize = codePointSize2(first);
       let score2 = firstSize == word.length ? 0 : -100;
-      if (first == chars[0]) ;
+      if (first == chars[0]);
       else if (first == folded[0])
         score2 += -200;
       else
@@ -19629,7 +19645,7 @@ var FuzzyMatcher = class {
       return this.ret(word.length == this.pattern.length ? 0 : -100, [0, this.pattern.length]);
     let len = chars.length, anyTo = 0;
     if (direct < 0) {
-      for (let i = 0, e = Math.min(word.length, 200); i < e && anyTo < len; ) {
+      for (let i = 0, e = Math.min(word.length, 200); i < e && anyTo < len;) {
         let next = codePointAt2(word, i);
         if (next == chars[anyTo] || next == folded[anyTo])
           any[anyTo++] = i;
@@ -19642,7 +19658,7 @@ var FuzzyMatcher = class {
     let byWordTo = 0, byWordFolded = false;
     let adjacentTo = 0, adjacentStart = -1, adjacentEnd = -1;
     let hasLower = /[a-z]/.test(word), wordAdjacent = true;
-    for (let i = 0, e = Math.min(word.length, 200), prevType = 0; i < e && byWordTo < len; ) {
+    for (let i = 0, e = Math.min(word.length, 200), prevType = 0; i < e && byWordTo < len;) {
       let next = codePointAt2(word, i);
       if (direct < 0) {
         if (preciseTo < len && next == chars[preciseTo])
@@ -19802,7 +19818,7 @@ function optionContent(config2) {
       let labelElt = document.createElement("span");
       labelElt.className = "cm-completionLabel";
       let label = completion.displayLabel || completion.label, off = 0;
-      for (let j = 0; j < match.length; ) {
+      for (let j = 0; j < match.length;) {
         let from = match[j++], to = match[j++];
         if (from > off)
           labelElt.appendChild(document.createTextNode(label.slice(off, from)));
@@ -20254,7 +20270,7 @@ var CompletionState = class _CompletionState {
 function sameResults(a2, b) {
   if (a2 == b)
     return true;
-  for (let iA = 0, iB = 0; ; ) {
+  for (let iA = 0, iB = 0; ;) {
     while (iA < a2.length && !a2[iA].hasResult())
       iA++;
     while (iB < b.length && !b[iB].hasResult())
@@ -20855,16 +20871,18 @@ var Snippet = class _Snippet {
     return new _Snippet(lines, positions);
   }
 };
-var fieldMarker = /* @__PURE__ */ Decoration.widget({ widget: /* @__PURE__ */ new class extends WidgetType {
-  toDOM() {
-    let span = document.createElement("span");
-    span.className = "cm-snippetFieldPosition";
-    return span;
-  }
-  ignoreEvent() {
-    return false;
-  }
-}() });
+var fieldMarker = /* @__PURE__ */ Decoration.widget({
+  widget: /* @__PURE__ */ new class extends WidgetType {
+    toDOM() {
+      let span = document.createElement("span");
+      span.className = "cm-snippetFieldPosition";
+      return span;
+    }
+    ignoreEvent() {
+      return false;
+    }
+  }()
+});
 var fieldRange = /* @__PURE__ */ Decoration.mark({ class: "cm-snippetField" });
 var ActiveSnippet = class _ActiveSnippet {
   constructor(ranges, active) {
@@ -21295,7 +21313,7 @@ var SearchCursor = class {
   such matches.
   */
   nextOverlapping() {
-    for (; ; ) {
+    for (; ;) {
       let next = this.peek();
       if (next < 0) {
         this.done = true;
@@ -21323,7 +21341,7 @@ var SearchCursor = class {
   }
   match(code, pos, posPrecise, end, endPrecise) {
     let match = null;
-    for (let i = 0; i < this.matches.length; ) {
+    for (let i = 0; i < this.matches.length;) {
       let partial = this.matches[i], keep = false;
       if (this.query.charCodeAt(partial.index) == code) {
         if (partial.index == this.query.length - 1) {
@@ -21350,7 +21368,7 @@ var SearchCursor = class {
   }
 };
 if (typeof Symbol != "undefined")
-  SearchCursor.prototype[Symbol.iterator] = function() {
+  SearchCursor.prototype[Symbol.iterator] = function () {
     return this;
   };
 var empty = { from: -1, to: -1, match: /* @__PURE__ */ /.*/.exec(""), precise: true };
@@ -21399,7 +21417,7 @@ var RegExpCursor = class {
   Move to the next match, if there is one.
   */
   next() {
-    for (let off = this.matchPos - this.curLineStart; ; ) {
+    for (let off = this.matchPos - this.curLineStart; ;) {
       this.re.lastIndex = off;
       let match = this.matchPos <= this.to && this.re.exec(this.curLine);
       if (match) {
@@ -21469,7 +21487,7 @@ var MultilineRegExpCursor = class {
     return pos >= this.to ? this.to : this.text.lineAt(pos).to;
   }
   next() {
-    for (; ; ) {
+    for (; ;) {
       let off = this.re.lastIndex = this.matchPos - this.flat.from;
       let match = this.re.exec(this.flat.text);
       if (match && !match[0] && match.index == off) {
@@ -21493,7 +21511,7 @@ var MultilineRegExpCursor = class {
   }
 };
 if (typeof Symbol != "undefined") {
-  RegExpCursor.prototype[Symbol.iterator] = MultilineRegExpCursor.prototype[Symbol.iterator] = function() {
+  RegExpCursor.prototype[Symbol.iterator] = MultilineRegExpCursor.prototype[Symbol.iterator] = function () {
     return this;
   };
 }
@@ -21650,7 +21668,7 @@ var selectWord = ({ state, dispatch }) => {
 function findNextOccurrence(state, query) {
   let { main, ranges } = state.selection;
   let word = state.wordAt(main.head), fullWord = word && word.from == main.from && word.to == main.to;
-  for (let cycled = false, cursor = new SearchCursor(state.doc, query, ranges[ranges.length - 1].to); ; ) {
+  for (let cycled = false, cursor = new SearchCursor(state.doc, query, ranges[ranges.length - 1].to); ;) {
     cursor.next();
     if (cursor.done) {
       if (cycled)
@@ -21787,7 +21805,7 @@ var StringQuery = class extends QueryType2 {
   // Searching in reverse is, rather than implementing an inverted search
   // cursor, done by scanning chunk after chunk forward.
   prevMatchInRange(state, from, to) {
-    for (let pos = to; ; ) {
+    for (let pos = to; ;) {
       let start = Math.max(from, pos - 1e4 - this.spec.unquoted.length);
       let cursor = stringCursor(this.spec, state, start, pos), range = null;
       while (!cursor.nextOverlapping().done)
@@ -22010,7 +22028,7 @@ var selectSelectionMatches = ({ state, dispatch }) => {
     return false;
   let { from, to } = sel.main;
   let ranges = [], main = 0;
-  for (let cur2 = new SearchCursor(state.doc, state.sliceDoc(from, to)); !cur2.next().done; ) {
+  for (let cur2 = new SearchCursor(state.doc, state.sliceDoc(from, to)); !cur2.next().done;) {
     if (ranges.length > 1e3)
       return false;
     if (cur2.value.from == from)
@@ -22112,10 +22130,12 @@ var openSearchPanel = (view) => {
       searchInput.select();
     }
   } else {
-    view.dispatch({ effects: [
-      togglePanel.of(true),
-      state ? setSearchQuery.of(defaultQuery(view.state, state.query.spec)) : StateEffect.appendConfig.of(searchExtensions)
-    ] });
+    view.dispatch({
+      effects: [
+        togglePanel.of(true),
+        state ? setSearchQuery.of(defaultQuery(view.state, state.query.spec)) : StateEffect.appendConfig.of(searchExtensions)
+      ]
+    });
   }
   return true;
 };
@@ -22568,7 +22588,7 @@ var Stack = class _Stack {
   given token when it applies.
   */
   canShift(term) {
-    for (let sim = new SimulatedStack(this); ; ) {
+    for (let sim = new SimulatedStack(this); ;) {
       let action = this.p.parser.stateSlot(
         sim.state,
         4
@@ -22661,7 +22681,7 @@ var Stack = class _Stack {
         return;
       seen.push(state);
       return parser9.allActions(state, (action) => {
-        if (action & (262144 | 131072)) ;
+        if (action & (262144 | 131072));
         else if (action & 65536) {
           let rDepth = (action >> 19) - depth;
           if (rDepth > 1) {
@@ -22873,9 +22893,9 @@ function decodeArray(input, Type2 = Uint16Array) {
   if (typeof input != "string")
     return input;
   let array = null;
-  for (let pos = 0, out = 0; pos < input.length; ) {
+  for (let pos = 0, out = 0; pos < input.length;) {
     let value = 0;
-    for (; ; ) {
+    for (; ;) {
       let next = input.charCodeAt(pos++), stop = false;
       if (next == 126) {
         value = 65535;
@@ -23143,7 +23163,7 @@ var LocalTokenGroup = class {
   }
   token(input, stack) {
     let start = input.pos, skipped = 0;
-    for (; ; ) {
+    for (; ;) {
       let atEof = input.next < 0, nextPos = input.resolveOffset(1, 1);
       readToken(this.data, input, stack, 0, this.data, this.precTable);
       if (input.token.value > -1)
@@ -23180,7 +23200,7 @@ var ExternalTokenizer = class {
 };
 function readToken(data2, input, stack, group, precTable, precOffset) {
   let state = 0, groupMask = 1 << group, { dialect } = stack.p.parser;
-  scan: for (; ; ) {
+  scan: for (; ;) {
     if ((groupMask & data2[state]) == 0)
       break;
     let accEnd = data2[state + 1];
@@ -23197,7 +23217,7 @@ function readToken(data2, input, stack, group, precTable, precOffset) {
       state = data2[accEnd + high * 3 - 1];
       continue scan;
     }
-    for (; low < high; ) {
+    for (; low < high;) {
       let mid = low + high >> 1;
       let index = accEnd + mid + (mid << 1);
       let from = data2[index], to = data2[index + 1] || 65536;
@@ -23229,9 +23249,9 @@ var stackIDs = null;
 function cutAt(tree, pos, side) {
   let cursor = tree.cursor(IterMode.IncludeAnonymous);
   cursor.moveTo(pos);
-  for (; ; ) {
+  for (; ;) {
     if (!(side < 0 ? cursor.childBefore(pos) : cursor.childAfter(pos)))
-      for (; ; ) {
+      for (; ;) {
         if ((side < 0 ? cursor.to < pos : cursor.from > pos) && !cursor.type.isError)
           return side < 0 ? Math.max(0, Math.min(
             cursor.to - 1,
@@ -23288,7 +23308,7 @@ var FragmentCursor2 = class {
       this.nextFragment();
     if (!this.fragment)
       return null;
-    for (; ; ) {
+    for (; ;) {
       let last = this.trees.length - 1;
       if (last < 0) {
         this.nextFragment();
@@ -23492,7 +23512,7 @@ var Parse = class {
     }
     for (let i = 0; i < stacks.length; i++) {
       let stack = stacks[i];
-      for (; ; ) {
+      for (; ;) {
         this.tokens.mainToken = null;
         if (stack.pos > pos) {
           newStacks.push(stack);
@@ -23588,7 +23608,7 @@ var Parse = class {
       return stack.forceReduce() ? stack : null;
     if (this.fragments) {
       let strictCx = stack.curContext && stack.curContext.tracker.strict, cxHash = strictCx ? stack.curContext.hash : 0;
-      for (let cached = this.fragments.nodeAt(start); cached; ) {
+      for (let cached = this.fragments.nodeAt(start); cached;) {
         let match = this.parser.nodeSet.types[cached.type.id] == cached.type ? parser9.getGoto(stack.state, cached.type.id) : -1;
         if (match > -1 && cached.length && (!strictCx || (cached.prop(NodeProp.contextHash) || 0) == cxHash)) {
           stack.useNode(cached, match);
@@ -23624,7 +23644,7 @@ var Parse = class {
       }
     }
     let actions = this.tokens.getActions(stack);
-    for (let i = 0; i < actions.length; ) {
+    for (let i = 0; i < actions.length;) {
       let action = actions[i++], term = actions[i++], end = actions[i++];
       let last = i == actions.length || !split;
       let localStack = last ? stack : stack.split();
@@ -23649,7 +23669,7 @@ var Parse = class {
   // forward and was given to `pushStackDedup`.
   advanceFully(stack, newStacks) {
     let pos = stack.pos;
-    for (; ; ) {
+    for (; ;) {
       if (!this.advanceStack(stack, null, null))
         return false;
       if (stack.pos > pos) {
@@ -23785,7 +23805,7 @@ var LRParser = class _LRParser extends Parser {
         let prop = propSpec[0];
         if (typeof prop == "string")
           prop = NodeProp[prop];
-        for (let i = 1; i < propSpec.length; ) {
+        for (let i = 1; i < propSpec.length;) {
           let next = propSpec[i++];
           if (next >= 0) {
             setProp(next, prop, propSpec[i++]);
@@ -23843,7 +23863,7 @@ var LRParser = class _LRParser extends Parser {
     let table = this.goto;
     if (term >= table[0])
       return -1;
-    for (let pos = table[term + 1]; ; ) {
+    for (let pos = table[term + 1]; ;) {
       let groupTag = table[pos++], last = groupTag & 1;
       let target = table[pos++];
       if (last && loose)
@@ -24045,7 +24065,7 @@ var LRParser = class _LRParser extends Parser {
     let disabled = null;
     for (let i = 0; i < values2.length; i++)
       if (!flags[i]) {
-        for (let j = this.dialects[values2[i]], id2; (id2 = this.data[j++]) != 65535; )
+        for (let j = this.dialects[values2[i]], id2; (id2 = this.data[j++]) != 65535;)
           (disabled || (disabled = new Uint8Array(this.maxTerm + 1)))[id2] = 1;
       }
     return new Dialect(dialect, flags, disabled);
@@ -24204,7 +24224,7 @@ function tagNameAfter(input, offset) {
   let pos = input.pos + offset;
   if (cachedPos == pos && cachedInput == input) return cachedName;
   let next = input.peek(offset), name2 = "";
-  for (; ; ) {
+  for (; ;) {
     if (!nameChar(next)) break;
     name2 += String.fromCharCode(next);
     next = input.peek(++offset);
@@ -24621,7 +24641,7 @@ function properties() {
   }
   return _properties || [];
 }
-var pseudoClasses = /* @__PURE__ */ [
+var pseudoClasses = /* @__PURE__ */[
   "active",
   "after",
   "any-link",
@@ -24686,7 +24706,7 @@ var pseudoClasses = /* @__PURE__ */ [
   "visited",
   "where"
 ].map((name2) => ({ type: "class", label: name2 }));
-var values = /* @__PURE__ */ [
+var values = /* @__PURE__ */[
   "above",
   "absolute",
   "activeborder",
@@ -25106,7 +25126,7 @@ var values = /* @__PURE__ */ [
   "xor",
   "xx-large",
   "xx-small"
-].map((name2) => ({ type: "keyword", label: name2 })).concat(/* @__PURE__ */ [
+].map((name2) => ({ type: "keyword", label: name2 })).concat(/* @__PURE__ */[
   "aliceblue",
   "antiquewhite",
   "aqua",
@@ -25250,7 +25270,7 @@ var values = /* @__PURE__ */ [
   "yellow",
   "yellowgreen"
 ].map((name2) => ({ type: "constant", label: name2 })));
-var tags2 = /* @__PURE__ */ [
+var tags2 = /* @__PURE__ */[
   "a",
   "abbr",
   "address",
@@ -25330,7 +25350,7 @@ var tags2 = /* @__PURE__ */ [
   "u",
   "ul"
 ].map((name2) => ({ type: "type", label: name2 }));
-var atRules = /* @__PURE__ */ [
+var atRules = /* @__PURE__ */[
   "@charset",
   "@color-profile",
   "@container",
@@ -25367,7 +25387,7 @@ function isVarArg(node, doc2) {
 var VariablesByNode = /* @__PURE__ */ new NodeWeakMap();
 var declSelector = ["Declaration"];
 function astTop(node) {
-  for (let cur2 = node; ; ) {
+  for (let cur2 = node; ;) {
     if (cur2.type.isTop)
       return cur2;
     if (!(cur2 = cur2.parent))
@@ -25445,11 +25465,11 @@ var cssLanguage = /* @__PURE__ */ LRLanguage.define({
   parser: /* @__PURE__ */ parser2.configure({
     props: [
       /* @__PURE__ */ indentNodeProp.add({
-        Declaration: /* @__PURE__ */ continuedIndent()
-      }),
+      Declaration: /* @__PURE__ */ continuedIndent()
+    }),
       /* @__PURE__ */ foldNodeProp.add({
-        "Block KeyframeList": foldInside
-      })
+      "Block KeyframeList": foldInside
+    })
     ]
   }),
   languageData: {
@@ -25677,77 +25697,77 @@ var parser3 = LRParser.deserialize({
 // node_modules/@codemirror/lang-javascript/dist/index.js
 var snippets = [
   /* @__PURE__ */ snippetCompletion("function ${name}(${params}) {\n	${}\n}", {
-    label: "function",
-    detail: "definition",
-    type: "keyword"
-  }),
+  label: "function",
+  detail: "definition",
+  type: "keyword"
+}),
   /* @__PURE__ */ snippetCompletion("for (let ${index} = 0; ${index} < ${bound}; ${index}++) {\n	${}\n}", {
-    label: "for",
-    detail: "loop",
-    type: "keyword"
-  }),
+  label: "for",
+  detail: "loop",
+  type: "keyword"
+}),
   /* @__PURE__ */ snippetCompletion("for (let ${name} of ${collection}) {\n	${}\n}", {
-    label: "for",
-    detail: "of loop",
-    type: "keyword"
-  }),
+  label: "for",
+  detail: "of loop",
+  type: "keyword"
+}),
   /* @__PURE__ */ snippetCompletion("do {\n	${}\n} while (${})", {
-    label: "do",
-    detail: "loop",
-    type: "keyword"
-  }),
+  label: "do",
+  detail: "loop",
+  type: "keyword"
+}),
   /* @__PURE__ */ snippetCompletion("while (${}) {\n	${}\n}", {
-    label: "while",
-    detail: "loop",
-    type: "keyword"
-  }),
+  label: "while",
+  detail: "loop",
+  type: "keyword"
+}),
   /* @__PURE__ */ snippetCompletion("try {\n	${}\n} catch (${error}) {\n	${}\n}", {
-    label: "try",
-    detail: "/ catch block",
-    type: "keyword"
-  }),
+  label: "try",
+  detail: "/ catch block",
+  type: "keyword"
+}),
   /* @__PURE__ */ snippetCompletion("if (${}) {\n	${}\n}", {
-    label: "if",
-    detail: "block",
-    type: "keyword"
-  }),
+  label: "if",
+  detail: "block",
+  type: "keyword"
+}),
   /* @__PURE__ */ snippetCompletion("if (${}) {\n	${}\n} else {\n	${}\n}", {
-    label: "if",
-    detail: "/ else block",
-    type: "keyword"
-  }),
+  label: "if",
+  detail: "/ else block",
+  type: "keyword"
+}),
   /* @__PURE__ */ snippetCompletion("class ${name} {\n	constructor(${params}) {\n		${}\n	}\n}", {
-    label: "class",
-    detail: "definition",
-    type: "keyword"
-  }),
+  label: "class",
+  detail: "definition",
+  type: "keyword"
+}),
   /* @__PURE__ */ snippetCompletion('import {${names}} from "${module}"\n${}', {
-    label: "import",
-    detail: "named",
-    type: "keyword"
-  }),
+  label: "import",
+  detail: "named",
+  type: "keyword"
+}),
   /* @__PURE__ */ snippetCompletion('import ${name} from "${module}"\n${}', {
-    label: "import",
-    detail: "default",
-    type: "keyword"
-  })
+  label: "import",
+  detail: "default",
+  type: "keyword"
+})
 ];
 var typescriptSnippets = /* @__PURE__ */ snippets.concat([
   /* @__PURE__ */ snippetCompletion("interface ${name} {\n	${}\n}", {
-    label: "interface",
-    detail: "definition",
-    type: "keyword"
-  }),
+  label: "interface",
+  detail: "definition",
+  type: "keyword"
+}),
   /* @__PURE__ */ snippetCompletion("type ${name} = ${type}", {
-    label: "type",
-    detail: "definition",
-    type: "keyword"
-  }),
+  label: "type",
+  detail: "definition",
+  type: "keyword"
+}),
   /* @__PURE__ */ snippetCompletion("enum ${name} {\n	${}\n}", {
-    label: "enum",
-    detail: "definition",
-    type: "keyword"
-  })
+  label: "enum",
+  detail: "definition",
+  type: "keyword"
+})
 ]);
 var cache = /* @__PURE__ */ new NodeWeakMap();
 var ScopeNodes = /* @__PURE__ */ new Set([
@@ -25854,49 +25874,49 @@ var javascriptLanguage = /* @__PURE__ */ LRLanguage.define({
   parser: /* @__PURE__ */ parser3.configure({
     props: [
       /* @__PURE__ */ indentNodeProp.add({
-        IfStatement: /* @__PURE__ */ continuedIndent({ except: /^\s*({|else\b)/ }),
-        TryStatement: /* @__PURE__ */ continuedIndent({ except: /^\s*({|catch\b|finally\b)/ }),
-        LabeledStatement: flatIndent,
-        SwitchBody: (context) => {
-          let after = context.textAfter, closed = /^\s*\}/.test(after), isCase = /^\s*(case|default)\b/.test(after);
-          return context.baseIndent + (closed ? 0 : isCase ? 1 : 2) * context.unit;
-        },
-        Block: /* @__PURE__ */ delimitedIndent({ closing: "}" }),
-        ArrowFunction: (cx) => cx.baseIndent + cx.unit,
-        "TemplateString BlockComment": () => null,
-        "Statement Property": /* @__PURE__ */ continuedIndent({ except: /^\s*{/ }),
-        JSXElement(context) {
-          let closed = /^\s*<\//.test(context.textAfter);
-          return context.lineIndent(context.node.from) + (closed ? 0 : context.unit);
-        },
-        JSXEscape(context) {
-          let closed = /\s*\}/.test(context.textAfter);
-          return context.lineIndent(context.node.from) + (closed ? 0 : context.unit);
-        },
-        "JSXOpenTag JSXSelfClosingTag"(context) {
-          return context.column(context.node.from) + context.unit;
-        }
-      }),
+      IfStatement: /* @__PURE__ */ continuedIndent({ except: /^\s*({|else\b)/ }),
+      TryStatement: /* @__PURE__ */ continuedIndent({ except: /^\s*({|catch\b|finally\b)/ }),
+      LabeledStatement: flatIndent,
+      SwitchBody: (context) => {
+        let after = context.textAfter, closed = /^\s*\}/.test(after), isCase = /^\s*(case|default)\b/.test(after);
+        return context.baseIndent + (closed ? 0 : isCase ? 1 : 2) * context.unit;
+      },
+      Block: /* @__PURE__ */ delimitedIndent({ closing: "}" }),
+      ArrowFunction: (cx) => cx.baseIndent + cx.unit,
+      "TemplateString BlockComment": () => null,
+      "Statement Property": /* @__PURE__ */ continuedIndent({ except: /^\s*{/ }),
+      JSXElement(context) {
+        let closed = /^\s*<\//.test(context.textAfter);
+        return context.lineIndent(context.node.from) + (closed ? 0 : context.unit);
+      },
+      JSXEscape(context) {
+        let closed = /\s*\}/.test(context.textAfter);
+        return context.lineIndent(context.node.from) + (closed ? 0 : context.unit);
+      },
+      "JSXOpenTag JSXSelfClosingTag"(context) {
+        return context.column(context.node.from) + context.unit;
+      }
+    }),
       /* @__PURE__ */ foldNodeProp.add({
-        "Block ClassBody SwitchBody EnumBody ObjectExpression ArrayExpression ObjectType": foldInside,
-        BlockComment(tree) {
-          return { from: tree.from + 2, to: tree.to - 2 };
-        },
-        JSXElement(tree) {
-          let open = tree.firstChild;
-          if (!open || open.name == "JSXSelfClosingTag")
-            return null;
-          let close = tree.lastChild;
-          return { from: open.to, to: close.type.isError ? tree.to : close.from };
-        },
-        "JSXSelfClosingTag JSXOpenTag"(tree) {
-          var _a2;
-          let name2 = (_a2 = tree.firstChild) === null || _a2 === void 0 ? void 0 : _a2.nextSibling, close = tree.lastChild;
-          if (!name2 || name2.type.isError)
-            return null;
-          return { from: name2.to, to: close.type.isError ? tree.to : close.from };
-        }
-      })
+      "Block ClassBody SwitchBody EnumBody ObjectExpression ArrayExpression ObjectType": foldInside,
+      BlockComment(tree) {
+        return { from: tree.from + 2, to: tree.to - 2 };
+      },
+      JSXElement(tree) {
+        let open = tree.firstChild;
+        if (!open || open.name == "JSXSelfClosingTag")
+          return null;
+        let close = tree.lastChild;
+        return { from: open.to, to: close.type.isError ? tree.to : close.from };
+      },
+      "JSXSelfClosingTag JSXOpenTag"(tree) {
+        var _a2;
+        let name2 = (_a2 = tree.firstChild) === null || _a2 === void 0 ? void 0 : _a2.nextSibling, close = tree.lastChild;
+        if (!name2 || name2.type.isError)
+          return null;
+        return { from: name2.to, to: close.type.isError ? tree.to : close.from };
+      }
+    })
     ]
   }),
   languageData: {
@@ -25921,7 +25941,7 @@ var tsxLanguage = /* @__PURE__ */ javascriptLanguage.configure({
 }, "typescript");
 var kwCompletion = (name2) => ({ label: name2, type: "keyword" });
 var keywords = /* @__PURE__ */ "break case const continue default delete export extends false finally in instanceof let new return static super switch this throw true typeof var yield".split(" ").map(kwCompletion);
-var typescriptKeywords = /* @__PURE__ */ keywords.concat(/* @__PURE__ */ ["declare", "implements", "private", "protected", "public"].map(kwCompletion));
+var typescriptKeywords = /* @__PURE__ */ keywords.concat(/* @__PURE__ */["declare", "implements", "private", "protected", "public"].map(kwCompletion));
 function javascript(config2 = {}) {
   let lang = config2.jsx ? config2.typescript ? tsxLanguage : jsxLanguage : config2.typescript ? typescriptLanguage : javascriptLanguage;
   let completions = config2.typescript ? typescriptSnippets.concat(typescriptKeywords) : snippets.concat(keywords);
@@ -25936,7 +25956,7 @@ function javascript(config2 = {}) {
   ]);
 }
 function findOpenTag(node) {
-  for (; ; ) {
+  for (; ;) {
     if (node.name == "JSXOpenTag" || node.name == "JSXSelfClosingTag" || node.name == "JSXFragmentTag")
       return node;
     if (node.name == "JSXEscape" || !node.parent)
@@ -25961,7 +25981,7 @@ var autoCloseTags = /* @__PURE__ */ EditorView.inputHandler.of((view, from, to, 
     let { head } = range, around = syntaxTree(state).resolveInner(head - 1, -1), name2;
     if (around.name == "JSXStartTag")
       around = around.parent;
-    if (state.doc.sliceString(head - 1, head) != text || around.name == "JSXAttributeValue" && around.to > head) ;
+    if (state.doc.sliceString(head - 1, head) != text || around.name == "JSXAttributeValue" && around.to > head);
     else if (text == ">" && around.name == "JSXFragmentTag") {
       return { range, changes: { from: head, insert: `</>` } };
     } else if (text == "/" && around.name == "JSXStartCloseTag") {
@@ -26531,7 +26551,7 @@ function completeAttrValue(state, schema, tree, from, to) {
 }
 function htmlCompletionFor(schema, context) {
   let { state, pos } = context, tree = syntaxTree(state).resolveInner(pos, -1), around = tree.resolve(pos);
-  for (let scan = pos, before; around == tree && (before = tree.childBefore(scan)); ) {
+  for (let scan = pos, before; around == tree && (before = tree.childBefore(scan));) {
     let last = before.lastChild;
     if (!last || !last.type.isError || last.from < last.to)
       break;
@@ -26601,7 +26621,7 @@ var defaultNesting = [
     parser: cssLanguage.parser
   }
 ];
-var defaultAttrs = /* @__PURE__ */ [
+var defaultAttrs = /* @__PURE__ */[
   {
     name: "style",
     parser: /* @__PURE__ */ cssLanguage.parser.configure({ top: "Styles" })
@@ -26612,41 +26632,41 @@ var htmlPlain = /* @__PURE__ */ LRLanguage.define({
   parser: /* @__PURE__ */ parser.configure({
     props: [
       /* @__PURE__ */ indentNodeProp.add({
-        Element(context) {
-          let after = /^(\s*)(<\/)?/.exec(context.textAfter);
-          if (context.node.to <= context.pos + after[0].length)
-            return context.continue();
-          return context.lineIndent(context.node.from) + (after[2] ? 0 : context.unit);
-        },
-        "OpenTag CloseTag SelfClosingTag"(context) {
-          return context.column(context.node.from) + context.unit;
-        },
-        Document(context) {
-          if (context.pos + /\s*/.exec(context.textAfter)[0].length < context.node.to)
-            return context.continue();
-          let endElt = null, close;
-          for (let cur2 = context.node; ; ) {
-            let last = cur2.lastChild;
-            if (!last || last.name != "Element" || last.to != cur2.to)
-              break;
-            endElt = cur2 = last;
-          }
-          if (endElt && !((close = endElt.lastChild) && (close.name == "CloseTag" || close.name == "SelfClosingTag")))
-            return context.lineIndent(endElt.from) + context.unit;
-          return null;
+      Element(context) {
+        let after = /^(\s*)(<\/)?/.exec(context.textAfter);
+        if (context.node.to <= context.pos + after[0].length)
+          return context.continue();
+        return context.lineIndent(context.node.from) + (after[2] ? 0 : context.unit);
+      },
+      "OpenTag CloseTag SelfClosingTag"(context) {
+        return context.column(context.node.from) + context.unit;
+      },
+      Document(context) {
+        if (context.pos + /\s*/.exec(context.textAfter)[0].length < context.node.to)
+          return context.continue();
+        let endElt = null, close;
+        for (let cur2 = context.node; ;) {
+          let last = cur2.lastChild;
+          if (!last || last.name != "Element" || last.to != cur2.to)
+            break;
+          endElt = cur2 = last;
         }
-      }),
+        if (endElt && !((close = endElt.lastChild) && (close.name == "CloseTag" || close.name == "SelfClosingTag")))
+          return context.lineIndent(endElt.from) + context.unit;
+        return null;
+      }
+    }),
       /* @__PURE__ */ foldNodeProp.add({
-        Element(node) {
-          let first = node.firstChild, last = node.lastChild;
-          if (!first || first.name != "OpenTag")
-            return null;
-          return { from: first.to, to: last.name == "CloseTag" ? last.from : node.to };
-        }
-      }),
+      Element(node) {
+        let first = node.firstChild, last = node.lastChild;
+        if (!first || first.name != "OpenTag")
+          return null;
+        return { from: first.to, to: last.name == "CloseTag" ? last.from : node.to };
+      }
+    }),
       /* @__PURE__ */ bracketMatchingHandle.add({
-        "OpenTag CloseTag": (node) => node.getChild("TagName")
-      })
+      "OpenTag CloseTag": (node) => node.getChild("TagName")
+    })
     ]
   }),
   languageData: {
@@ -26747,7 +26767,7 @@ var CompositeBlock = class _CompositeBlock {
   }
 };
 var Type;
-(function(Type2) {
+(function (Type2) {
   Type2[Type2["Document"] = 1] = "Document";
   Type2[Type2["CodeBlock"] = 2] = "CodeBlock";
   Type2[Type2["FencedCode"] = 3] = "FencedCode";
@@ -26991,7 +27011,7 @@ function isBulletList(line, cx, breaking) {
 }
 function isOrderedList(line, cx, breaking) {
   let pos = line.pos, next = line.next;
-  for (; ; ) {
+  for (; ;) {
     if (next >= 48 && next <= 57)
       pos++;
     else
@@ -27264,7 +27284,7 @@ var LinkReferenceParser = class {
     return false;
   }
   advance(content2) {
-    for (; ; ) {
+    for (; ;) {
       if (this.stage == -1) {
         return -1;
       } else if (this.stage == 0) {
@@ -27371,8 +27391,8 @@ var BlockContext = class {
     if (this.stoppedAt != null && this.absoluteLineStart > this.stoppedAt)
       return this.finish();
     let { line } = this;
-    for (; ; ) {
-      for (let markI = 0; ; ) {
+    for (; ;) {
+      for (let markI = 0; ;) {
         let next = line.depth < this.stack.length ? this.stack[this.stack.length - 1] : null;
         while (markI < line.markers.length && (!next || line.markers[markI].from < next.end)) {
           let mark = line.markers[markI++];
@@ -27389,7 +27409,7 @@ var BlockContext = class {
     }
     if (this.fragments && this.reuseFragment(line.basePos))
       return null;
-    start: for (; ; ) {
+    start: for (; ;) {
       for (let type of this.parser.blockParsers)
         if (type) {
           let result = type(this, line);
@@ -27791,7 +27811,7 @@ var MarkdownParser = class _MarkdownParser extends Parser {
   */
   parseInline(text, offset) {
     let cx = new InlineContext(this, text, offset);
-    outer: for (let pos = offset; pos < cx.end; ) {
+    outer: for (let pos = offset; pos < cx.end;) {
       let next = cx.char(pos);
       for (let token of this.inlineParsers)
         if (token) {
@@ -28248,7 +28268,7 @@ var InlineContext = class {
       for (; j >= from; j--) {
         let part = this.parts[j];
         if (part instanceof InlineDelimiter && part.side & 1 && part.type == close.type && // Ignore emphasis delimiters where the character count doesn't match
-        !(emp && (close.side & 1 || part.side & 2) && (part.to - part.from + closeSize) % 3 == 0 && ((part.to - part.from) % 3 || closeSize % 3))) {
+          !(emp && (close.side & 1 || part.side & 2) && (part.to - part.from + closeSize) % 3 == 0 && ((part.to - part.from) % 3 || closeSize % 3))) {
           open = part;
           break;
         }
@@ -28395,7 +28415,7 @@ var FragmentCursor3 = class {
     while (c.to <= rPos)
       if (!c.parent())
         return false;
-    for (; ; ) {
+    for (; ;) {
       if (c.from >= rPos)
         return this.fragment.from <= lineStart;
       if (!c.childAfter(rPos))
@@ -28410,7 +28430,7 @@ var FragmentCursor3 = class {
     let cur2 = this.cursor, off = this.fragment.offset, fragEnd = this.fragmentEnd - (this.fragment.openEnd ? 1 : 0);
     let start = cx.absoluteLineStart, end = start, blockI = cx.block.children.length;
     let prevEnd = end, prevI = blockI;
-    for (; ; ) {
+    for (; ;) {
       if (cur2.to - off > fragEnd) {
         if (cur2.type.isAnonymous && cur2.firstChild())
           continue;
@@ -28671,7 +28691,7 @@ function autolinkURLEnd(text, from) {
   if (!m || lastTwoDomainWords.exec(m[0])[0].indexOf("_") > -1)
     return -1;
   let end = from + m[0].length;
-  for (; ; ) {
+  for (; ;) {
     let last = text[end - 1], m2;
     if (/[?!.,:*_~]/.test(last) || last == ")" && count(text, from, end, ")") > count(text, from, end, "("))
       end--;
@@ -28782,15 +28802,15 @@ var headingProp = /* @__PURE__ */ new NodeProp();
 var commonmark = /* @__PURE__ */ parser4.configure({
   props: [
     /* @__PURE__ */ foldNodeProp.add((type) => {
-      return !type.is("Block") || type.is("Document") || isHeading(type) != null || isList(type) ? void 0 : (tree, state) => ({ from: state.doc.lineAt(tree.from).to, to: tree.to });
-    }),
+    return !type.is("Block") || type.is("Document") || isHeading(type) != null || isList(type) ? void 0 : (tree, state) => ({ from: state.doc.lineAt(tree.from).to, to: tree.to });
+  }),
     /* @__PURE__ */ headingProp.add(isHeading),
     /* @__PURE__ */ indentNodeProp.add({
-      Document: () => null
-    }),
+    Document: () => null
+  }),
     /* @__PURE__ */ languageDataProp.add({
-      Document: data
-    })
+    Document: data
+  })
   ]
 });
 function isHeading(type) {
@@ -28802,7 +28822,7 @@ function isList(type) {
 }
 function findSectionEnd(headerNode, level) {
   let last = headerNode;
-  for (; ; ) {
+  for (; ;) {
     let next = last.nextSibling, heading2;
     if (!next || (heading2 = isHeading(next.type)) != null && heading2 <= level)
       break;
@@ -28830,8 +28850,8 @@ var commonmarkLanguage = /* @__PURE__ */ mkLang(commonmark);
 var extended = /* @__PURE__ */ commonmark.configure([GFM, Subscript, Superscript, Emoji, {
   props: [
     /* @__PURE__ */ foldNodeProp.add({
-      Table: (tree, state) => ({ from: state.doc.lineAt(tree.from).to, to: tree.to })
-    })
+    Table: (tree, state) => ({ from: state.doc.lineAt(tree.from).to, to: tree.to })
+  })
   ]
 }]);
 var markdownLanguage = /* @__PURE__ */ mkLang(extended);
@@ -28917,7 +28937,7 @@ function itemNumber(item, doc2) {
   return /^(\s*)(\d+)(?=[.)])/.exec(doc2.sliceString(item.from, item.from + 10));
 }
 function renumberList(after, doc2, changes, offset = 0) {
-  for (let prev = -1, node = after; ; ) {
+  for (let prev = -1, node = after; ;) {
     if (node.name == "ListItem") {
       let m = itemNumber(node, doc2);
       let number2 = +m[2];
@@ -28940,7 +28960,7 @@ function normalizeIndent(content2, state) {
     return content2;
   let col = countColumn(content2, 4, blank);
   let space5 = "";
-  for (let i = col; i > 0; ) {
+  for (let i = col; i > 0;) {
     if (i >= 4) {
       space5 += "	";
       i -= 4;
@@ -29052,7 +29072,7 @@ function contextNodeForDelete(tree, pos) {
     scan = node.from;
     node = node.parent;
   }
-  for (let prev; prev = node.childBefore(scan); ) {
+  for (let prev; prev = node.childBefore(scan);) {
     if (isMark(prev)) {
       scan = prev.from;
     } else if (prev.name == "OrderedList" || prev.name == "BulletList") {
@@ -29080,9 +29100,9 @@ var deleteMarkupBackward = ({ state, dispatch }) => {
             changes: { from: line.from + spaceEnd, to: pos }
           };
         if (pos - line.from == spaceEnd && // Only apply this if we're on the line that has the
-        // construct's syntax, or there's only indentation in the
-        // target range
-        (!inner.item || line.from <= inner.item.from || !/\S/.test(line.text.slice(0, inner.to)))) {
+          // construct's syntax, or there's only indentation in the
+          // target range
+          (!inner.item || line.from <= inner.item.from || !/\S/.test(line.text.slice(0, inner.to)))) {
           let start = line.from + inner.from;
           if (inner.item && inner.node.from < inner.item.from && /\S/.test(line.text.slice(inner.from, inner.to))) {
             let insert2 = inner.blank(countColumn(line.text, 4, inner.to) - countColumn(line.text, 4, inner.from));
@@ -29316,7 +29336,7 @@ var indentation = new ExternalTokenizer((input, stack) => {
   let prev = input.peek(-1);
   if (prev == newline3 || prev == carriageReturn) {
     let depth = 0, chars = 0;
-    for (; ; ) {
+    for (; ;) {
       if (input.next == space4) depth++;
       else if (input.next == tab) depth += 8 - depth % 8;
       else break;
@@ -29409,7 +29429,7 @@ var strings = new ExternalTokenizer((input, stack) => {
   let escapes = !(flags & cx_Raw);
   let format = (flags & cx_Format) > 0;
   let start = input.pos;
-  for (; ; ) {
+  for (; ;) {
     if (input.next < 0) {
       break;
     } else if (format && input.next == braceOpen) {
@@ -29636,7 +29656,7 @@ function localCompletionSource2(context) {
     validFor: Identifier2
   };
 }
-var globals = /* @__PURE__ */ [
+var globals = /* @__PURE__ */[
   "__annotations__",
   "__builtins__",
   "__debug__",
@@ -29649,7 +29669,7 @@ var globals = /* @__PURE__ */ [
   "False",
   "None",
   "True"
-].map((n) => ({ label: n, type: "constant" })).concat(/* @__PURE__ */ [
+].map((n) => ({ label: n, type: "constant" })).concat(/* @__PURE__ */[
   "ArithmeticError",
   "AssertionError",
   "AttributeError",
@@ -29719,7 +29739,7 @@ var globals = /* @__PURE__ */ [
   "ValueError",
   "Warning",
   "ZeroDivisionError"
-].map((n) => ({ label: n, type: "type" }))).concat(/* @__PURE__ */ [
+].map((n) => ({ label: n, type: "type" }))).concat(/* @__PURE__ */[
   "bool",
   "bytearray",
   "bytes",
@@ -29739,7 +29759,7 @@ var globals = /* @__PURE__ */ [
   "super",
   "tuple",
   "type"
-].map((n) => ({ label: n, type: "class" }))).concat(/* @__PURE__ */ [
+].map((n) => ({ label: n, type: "class" }))).concat(/* @__PURE__ */[
   "abs",
   "aiter",
   "all",
@@ -29797,57 +29817,57 @@ var globals = /* @__PURE__ */ [
 ].map((n) => ({ label: n, type: "function" })));
 var snippets2 = [
   /* @__PURE__ */ snippetCompletion("def ${name}(${params}):\n	${}", {
-    label: "def",
-    detail: "function",
-    type: "keyword"
-  }),
+  label: "def",
+  detail: "function",
+  type: "keyword"
+}),
   /* @__PURE__ */ snippetCompletion("for ${name} in ${collection}:\n	${}", {
-    label: "for",
-    detail: "loop",
-    type: "keyword"
-  }),
+  label: "for",
+  detail: "loop",
+  type: "keyword"
+}),
   /* @__PURE__ */ snippetCompletion("while ${}:\n	${}", {
-    label: "while",
-    detail: "loop",
-    type: "keyword"
-  }),
+  label: "while",
+  detail: "loop",
+  type: "keyword"
+}),
   /* @__PURE__ */ snippetCompletion("try:\n	${}\nexcept ${error}:\n	${}", {
-    label: "try",
-    detail: "/ except block",
-    type: "keyword"
-  }),
+  label: "try",
+  detail: "/ except block",
+  type: "keyword"
+}),
   /* @__PURE__ */ snippetCompletion("if ${}:\n	\n", {
-    label: "if",
-    detail: "block",
-    type: "keyword"
-  }),
+  label: "if",
+  detail: "block",
+  type: "keyword"
+}),
   /* @__PURE__ */ snippetCompletion("if ${}:\n	${}\nelse:\n	${}", {
-    label: "if",
-    detail: "/ else block",
-    type: "keyword"
-  }),
+  label: "if",
+  detail: "/ else block",
+  type: "keyword"
+}),
   /* @__PURE__ */ snippetCompletion("class ${name}:\n	def __init__(self, ${params}):\n			${}", {
-    label: "class",
-    detail: "definition",
-    type: "keyword"
-  }),
+  label: "class",
+  detail: "definition",
+  type: "keyword"
+}),
   /* @__PURE__ */ snippetCompletion("import ${module}", {
-    label: "import",
-    detail: "statement",
-    type: "keyword"
-  }),
+  label: "import",
+  detail: "statement",
+  type: "keyword"
+}),
   /* @__PURE__ */ snippetCompletion("from ${module} import ${names}", {
-    label: "from",
-    detail: "import",
-    type: "keyword"
-  })
+  label: "from",
+  detail: "import",
+  type: "keyword"
+})
 ];
 var globalCompletion = /* @__PURE__ */ ifNotIn(dontComplete2, /* @__PURE__ */ completeFromList(/* @__PURE__ */ globals.concat(snippets2)));
 function innerBody(context) {
   let { node, pos } = context;
   let lineIndent = context.lineIndent(pos, -1);
   let found = null;
-  for (; ; ) {
+  for (; ;) {
     let before = node.childBefore(pos);
     if (!before) {
       break;
@@ -29881,40 +29901,40 @@ var pythonLanguage = /* @__PURE__ */ LRLanguage.define({
   parser: /* @__PURE__ */ parser5.configure({
     props: [
       /* @__PURE__ */ indentNodeProp.add({
-        Body: (context) => {
-          var _a2;
-          let body = /^\s*(#|$)/.test(context.textAfter) && innerBody(context) || context.node;
-          return (_a2 = indentBody(context, body)) !== null && _a2 !== void 0 ? _a2 : context.continue();
-        },
-        MatchBody: (context) => {
-          var _a2;
-          let inner = innerBody(context);
-          return (_a2 = indentBody(context, inner || context.node)) !== null && _a2 !== void 0 ? _a2 : context.continue();
-        },
-        IfStatement: (cx) => /^\s*(else:|elif )/.test(cx.textAfter) ? cx.baseIndent : cx.continue(),
-        "ForStatement WhileStatement": (cx) => /^\s*else:/.test(cx.textAfter) ? cx.baseIndent : cx.continue(),
-        TryStatement: (cx) => /^\s*(except[ :]|finally:|else:)/.test(cx.textAfter) ? cx.baseIndent : cx.continue(),
-        MatchStatement: (cx) => {
-          if (/^\s*case /.test(cx.textAfter))
-            return cx.baseIndent + cx.unit;
-          return cx.continue();
-        },
-        "TupleExpression ComprehensionExpression ParamList ArgList ParenthesizedExpression": /* @__PURE__ */ delimitedIndent({ closing: ")" }),
-        "DictionaryExpression DictionaryComprehensionExpression SetExpression SetComprehensionExpression": /* @__PURE__ */ delimitedIndent({ closing: "}" }),
-        "ArrayExpression ArrayComprehensionExpression": /* @__PURE__ */ delimitedIndent({ closing: "]" }),
-        MemberExpression: (cx) => cx.baseIndent + cx.unit,
-        "String FormatString": () => null,
-        Script: (context) => {
-          var _a2;
-          let inner = innerBody(context);
-          return (_a2 = inner && indentBody(context, inner)) !== null && _a2 !== void 0 ? _a2 : context.continue();
-        }
-      }),
+      Body: (context) => {
+        var _a2;
+        let body = /^\s*(#|$)/.test(context.textAfter) && innerBody(context) || context.node;
+        return (_a2 = indentBody(context, body)) !== null && _a2 !== void 0 ? _a2 : context.continue();
+      },
+      MatchBody: (context) => {
+        var _a2;
+        let inner = innerBody(context);
+        return (_a2 = indentBody(context, inner || context.node)) !== null && _a2 !== void 0 ? _a2 : context.continue();
+      },
+      IfStatement: (cx) => /^\s*(else:|elif )/.test(cx.textAfter) ? cx.baseIndent : cx.continue(),
+      "ForStatement WhileStatement": (cx) => /^\s*else:/.test(cx.textAfter) ? cx.baseIndent : cx.continue(),
+      TryStatement: (cx) => /^\s*(except[ :]|finally:|else:)/.test(cx.textAfter) ? cx.baseIndent : cx.continue(),
+      MatchStatement: (cx) => {
+        if (/^\s*case /.test(cx.textAfter))
+          return cx.baseIndent + cx.unit;
+        return cx.continue();
+      },
+      "TupleExpression ComprehensionExpression ParamList ArgList ParenthesizedExpression": /* @__PURE__ */ delimitedIndent({ closing: ")" }),
+      "DictionaryExpression DictionaryComprehensionExpression SetExpression SetComprehensionExpression": /* @__PURE__ */ delimitedIndent({ closing: "}" }),
+      "ArrayExpression ArrayComprehensionExpression": /* @__PURE__ */ delimitedIndent({ closing: "]" }),
+      MemberExpression: (cx) => cx.baseIndent + cx.unit,
+      "String FormatString": () => null,
+      Script: (context) => {
+        var _a2;
+        let inner = innerBody(context);
+        return (_a2 = inner && indentBody(context, inner)) !== null && _a2 !== void 0 ? _a2 : context.continue();
+      }
+    }),
       /* @__PURE__ */ foldNodeProp.add({
-        "ArrayExpression DictionaryExpression SetExpression TupleExpression": foldInside,
-        Body: (node, state) => ({ from: node.from + 1, to: node.to - (node.to == state.doc.length ? 0 : 1) }),
-        "String FormatString": (node, state) => ({ from: state.doc.lineAt(node.from).to, to: node.to })
-      })
+      "ArrayExpression DictionaryExpression SetExpression TupleExpression": foldInside,
+      Body: (node, state) => ({ from: node.from + 1, to: node.to - (node.to == state.doc.length ? 0 : 1) }),
+      "String FormatString": (node, state) => ({ from: state.doc.lineAt(node.from).to, to: node.to })
+    })
     ]
   }),
   languageData: {
@@ -29988,7 +30008,7 @@ var rawString = new ExternalTokenizer((input) => {
     input.advance();
   }
   input.advance();
-  for (; ; ) {
+  for (; ;) {
     if (input.next < 0)
       return input.acceptToken(RawString);
     if (input.next == ParenR) {
@@ -30096,20 +30116,20 @@ var cppLanguage = /* @__PURE__ */ LRLanguage.define({
   parser: /* @__PURE__ */ parser6.configure({
     props: [
       /* @__PURE__ */ indentNodeProp.add({
-        IfStatement: /* @__PURE__ */ continuedIndent({ except: /^\s*({|else\b)/ }),
-        TryStatement: /* @__PURE__ */ continuedIndent({ except: /^\s*({|catch)\b/ }),
-        LabeledStatement: flatIndent,
-        CaseStatement: (context) => context.baseIndent + context.unit,
-        BlockComment: () => null,
-        CompoundStatement: /* @__PURE__ */ delimitedIndent({ closing: "}" }),
-        Statement: /* @__PURE__ */ continuedIndent({ except: /^{/ })
-      }),
+      IfStatement: /* @__PURE__ */ continuedIndent({ except: /^\s*({|else\b)/ }),
+      TryStatement: /* @__PURE__ */ continuedIndent({ except: /^\s*({|catch)\b/ }),
+      LabeledStatement: flatIndent,
+      CaseStatement: (context) => context.baseIndent + context.unit,
+      BlockComment: () => null,
+      CompoundStatement: /* @__PURE__ */ delimitedIndent({ closing: "}" }),
+      Statement: /* @__PURE__ */ continuedIndent({ except: /^{/ })
+    }),
       /* @__PURE__ */ foldNodeProp.add({
-        "DeclarationList CompoundStatement EnumeratorList FieldDeclarationList InitializerList": foldInside,
-        BlockComment(tree) {
-          return { from: tree.from + 2, to: tree.to - 2 };
-        }
-      })
+      "DeclarationList CompoundStatement EnumeratorList FieldDeclarationList InitializerList": foldInside,
+      BlockComment(tree) {
+        return { from: tree.from + 2, to: tree.to - 2 };
+      }
+    })
     ]
   }),
   languageData: {
@@ -30234,7 +30254,7 @@ var newlines2 = new ExternalTokenizer((input, stack) => {
       input.advance();
     }
     if ((depth < stack.context.depth || depth == stack.context.depth && stack.context.type == type_Seq && (input.next != 45 || !isSep(input.peek(1)))) && // Not blank
-    input.next != -1 && !isBreakSpace(input.next) && input.next != 35)
+      input.next != -1 && !isBreakSpace(input.next) && input.next != 35)
       input.acceptToken(blockEnd, -depth);
   }
 }, { contextual: true });
@@ -30256,7 +30276,7 @@ var blockMark = new ExternalTokenizer((input, stack) => {
       input.acceptToken(stack.context.type == type_Map && stack.context.depth == findColumn2(input, input.pos - 1) ? explicitMapContinueMark : explicitMapStartMark);
   } else {
     let start = input.pos;
-    for (; ; ) {
+    for (; ;) {
       if (isNonBreakSpace(input.next)) {
         if (input.pos == start) return;
         input.advance();
@@ -30309,7 +30329,7 @@ function readTag(input) {
   input.advance();
   if (input.next == 60) {
     input.advance();
-    for (; ; ) {
+    for (; ;) {
       if (!readUriChar(input, true)) {
         if (input.next == 62) input.advance();
         break;
@@ -30327,7 +30347,7 @@ function readAnchor(input) {
 function readQuoted(input, scan) {
   let quote = input.next, lineBreak = false, start = input.pos;
   input.advance();
-  for (; ; ) {
+  for (; ;) {
     let ch = input.next;
     if (ch < 0) break;
     input.advance();
@@ -30350,7 +30370,7 @@ function readQuoted(input, scan) {
   return !lineBreak;
 }
 function scanBrackets(input) {
-  for (let stack = [], end = input.pos + 1024; ; ) {
+  for (let stack = [], end = input.pos + 1024; ;) {
     if (input.next == 91 || input.next == 123) {
       stack.push(input.next);
       input.advance();
@@ -30385,7 +30405,7 @@ function readPlain(input, scan, inFlow, indent2) {
     return false;
   }
   let start = input.pos;
-  for (; ; ) {
+  for (; ;) {
     let next = input.next, off = 0, lineIndent = indent2 + 1;
     while (isSpace(next)) {
       if (isBreakSpace(next)) {
@@ -30422,7 +30442,7 @@ var literals = new ExternalTokenizer((input, stack) => {
 });
 var blockLiteral = new ExternalTokenizer((input, stack) => {
   let indent2 = stack.context.type == type_Lit ? stack.context.depth : -1, upto = input.pos;
-  scan: for (; ; ) {
+  scan: for (; ;) {
     let depth = 0, next = input.next;
     while (next == 32) next = input.peek(++depth);
     if (!depth && (three(input, 45, depth) || three(input, 46, depth))) break;
@@ -30430,7 +30450,7 @@ var blockLiteral = new ExternalTokenizer((input, stack) => {
       if (indent2 < 0) indent2 = Math.max(stack.context.depth + 1, depth);
       if (depth < indent2) break;
     }
-    for (; ; ) {
+    for (; ;) {
       if (input.next < 0) break scan;
       let isBreak = isBreakSpace(input.next);
       input.advance();
@@ -30499,33 +30519,33 @@ var yamlLanguage = /* @__PURE__ */ LRLanguage.define({
   parser: /* @__PURE__ */ parser7.configure({
     props: [
       /* @__PURE__ */ indentNodeProp.add({
-        Stream: (cx) => {
-          for (let before = cx.node.resolve(cx.pos, -1); before && before.to >= cx.pos; before = before.parent) {
-            if (before.name == "BlockLiteralContent" && before.from < before.to)
-              return cx.baseIndentFor(before);
-            if (before.name == "BlockLiteral")
-              return cx.baseIndentFor(before) + cx.unit;
-            if (before.name == "BlockSequence" || before.name == "BlockMapping")
-              return cx.column(before.firstChild.from, 1);
-            if (before.name == "QuotedLiteral")
+      Stream: (cx) => {
+        for (let before = cx.node.resolve(cx.pos, -1); before && before.to >= cx.pos; before = before.parent) {
+          if (before.name == "BlockLiteralContent" && before.from < before.to)
+            return cx.baseIndentFor(before);
+          if (before.name == "BlockLiteral")
+            return cx.baseIndentFor(before) + cx.unit;
+          if (before.name == "BlockSequence" || before.name == "BlockMapping")
+            return cx.column(before.firstChild.from, 1);
+          if (before.name == "QuotedLiteral")
+            return null;
+          if (before.name == "Literal") {
+            let col = cx.column(before.from, 1);
+            if (col == cx.lineIndent(before.from, 1))
+              return col;
+            if (before.to > cx.pos)
               return null;
-            if (before.name == "Literal") {
-              let col = cx.column(before.from, 1);
-              if (col == cx.lineIndent(before.from, 1))
-                return col;
-              if (before.to > cx.pos)
-                return null;
-            }
           }
-          return null;
-        },
-        FlowMapping: /* @__PURE__ */ delimitedIndent({ closing: "}" }),
-        FlowSequence: /* @__PURE__ */ delimitedIndent({ closing: "]" })
-      }),
+        }
+        return null;
+      },
+      FlowMapping: /* @__PURE__ */ delimitedIndent({ closing: "}" }),
+      FlowSequence: /* @__PURE__ */ delimitedIndent({ closing: "]" })
+    }),
       /* @__PURE__ */ foldNodeProp.add({
-        "FlowMapping FlowSequence": foldInside,
-        "Item Pair BlockLiteral": (node, state) => ({ from: state.doc.lineAt(node.from).to, to: node.to })
-      })
+      "FlowMapping FlowSequence": foldInside,
+      "Item Pair BlockLiteral": (node, state) => ({ from: state.doc.lineAt(node.from).to, to: node.to })
+    })
     ]
   }),
   languageData: {
@@ -30684,5 +30704,6 @@ export {
   createCodeMirrorEditor,
   moveLineDown,
   moveLineUp,
+  openSearchPanel,
   tags
 };

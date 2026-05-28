@@ -1076,7 +1076,7 @@ function handleDocumentKeydown(event) {
     return;
   }
 
-  if (key === 't') {
+  if (key === 'n' || key === 't') {
     event.preventDefault();
     void createTabAtCurrentPosition();
     return;

@@ -6,6 +6,7 @@ import {
   HighlightStyle,
   moveLineDown,
   moveLineUp,
+  openSearchPanel,
   tags
 } from '/public/libs/codemirror.js';
 
@@ -76,7 +77,8 @@ const carbonKeymap = [
   { key: 'Ctrl-Shift-ArrowUp', run: moveLineUp, preventDefault: true },
   { key: 'Ctrl-Shift-ArrowDown', run: moveLineDown, preventDefault: true },
   { key: 'Cmd-Shift-ArrowUp', run: moveLineUp, preventDefault: true },
-  { key: 'Cmd-Shift-ArrowDown', run: moveLineDown, preventDefault: true }
+  { key: 'Cmd-Shift-ArrowDown', run: moveLineDown, preventDefault: true },
+  { key: 'Ctrl-h', run: openSearchPanel, preventDefault: true }
 ];
 
 export function createCarbonEditor(options) {
