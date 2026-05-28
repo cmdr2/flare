@@ -12798,7 +12798,7 @@ function rectangleSelectionStyle(view, event) {
   };
 }
 function rectangularSelection(options) {
-  let filter = (options === null || options === void 0 ? void 0 : options.eventFilter) || ((e) => e.altKey && e.button == 0);
+  let filter = (options === null || options === void 0 ? void 0 : options.eventFilter) || ((e) => e.button == 1 || e.altKey && e.button == 0);
   return EditorView.mouseSelectionStyle.of((view, event) => filter(event) ? rectangleSelectionStyle(view, event) : null);
 }
 var keys = {
