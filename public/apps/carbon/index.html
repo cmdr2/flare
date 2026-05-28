@@ -420,6 +420,7 @@
 
     .tab-list-item.dragging {
       opacity: 0.55;
+      pointer-events: none;
     }
 
     .tab-list-item.long-press-armed {
@@ -430,6 +431,29 @@
     .tab-list-item .tab-main {
       padding: 4px 10px;
       min-height: 20px;
+    }
+
+    .tab-drag-handle {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      align-self: stretch;
+      border-radius: 8px;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      line-height: 1;
+      letter-spacing: -1px;
+      pointer-events: auto;
+      touch-action: none;
+      user-select: none;
+      cursor: grab;
+    }
+
+    .tab-list-item.active .tab-drag-handle,
+    .tab-list-item.long-press-armed .tab-drag-handle {
+      color: var(--text-strong);
     }
 
     .tab-list-item .tab-close {

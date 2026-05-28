@@ -386,6 +386,15 @@ function createTabNode(tab, axis) {
     bindMobileLongPress(item, tab.id);
   }
 
+  let dragHandle = null;
+  if (axis === 'vertical') {
+    dragHandle = document.createElement('span');
+    dragHandle.className = 'tab-drag-handle';
+    dragHandle.textContent = '::';
+    dragHandle.setAttribute('aria-hidden', 'true');
+    bindMobileDragHandle(dragHandle, item, tab.id);
+  }
+
   const mainButton = document.createElement('button');
   mainButton.type = 'button';
   mainButton.className = 'tab-main';
@@ -408,7 +417,11 @@ function createTabNode(tab, axis) {
     void closeTab(tab.id);
   });
 
-  item.append(mainButton, closeButton);
+  if (dragHandle) {
+    item.append(dragHandle, mainButton, closeButton);
+  } else {
+    item.append(mainButton, closeButton);
+  }
   return item;
 }
 
@@ -640,22 +653,43 @@ function cancelMobileLongPress(pointerId) {
   mobileLongPress = null;
 }
 
+function bindMobileDragHandle(handle, item, tabId) {
+  handle.addEventListener('pointerdown', (event) => {
+    if (!isMobileViewport() || mobileDragState || dragState) {
+      return;
+    }
+
+    if (event.button !== undefined && event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    startImmediateMobileDrag(item, tabId, event.pointerId, event.clientX, event.clientY);
+  });
+}
+
+function startImmediateMobileDrag(item, tabId, pointerId, clientX, clientY) {
+  dragState = { id: tabId, targetId: tabId, after: false };
+  item.classList.add('dragging');
+  mobileDragState = {
+    pointerId,
+    item,
+    tabId,
+    axis: 'vertical',
+    lastClientX: clientX,
+    lastClientY: clientY,
+    active: false
+  };
+}
+
 function startMobileDrag(item, tabId, pointerId, rect) {
   if (!mobileLongPress || mobileLongPress.pointerId !== pointerId || mobileLongPress.tabId !== tabId) {
     return;
   }
 
   mobileLongPress.item.classList.add('long-press-armed');
-  dragState = { id: tabId, targetId: tabId, after: false };
-  mobileDragState = {
-    pointerId,
-    item,
-    tabId,
-    axis: 'vertical',
-    lastClientX: mobileLongPress.startX,
-    lastClientY: mobileLongPress.startY,
-    active: false
-  };
+  startImmediateMobileDrag(item, tabId, pointerId, mobileLongPress.startX, mobileLongPress.startY);
 }
 
 function handleMobileDragMove(event) {
@@ -680,7 +714,8 @@ function handleMobileDragMove(event) {
     mobileDragState.item.classList.add('dragging');
   }
 
-  const dropTarget = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-id]');
+  const pointTarget = document.elementFromPoint(event.clientX, event.clientY);
+  const dropTarget = pointTarget?.closest('[data-id]');
   if (dropTarget && dropTarget.dataset.id && dropTarget.dataset.id !== mobileDragState.tabId) {
     const rect = dropTarget.getBoundingClientRect();
     dragState.targetId = dropTarget.dataset.id;
@@ -689,7 +724,7 @@ function handleMobileDragMove(event) {
     return;
   }
 
-  if (!ui.mobileTabList.contains(event.target)) {
+  if (!pointTarget || !ui.mobileTabList.contains(pointTarget)) {
     return;
   }
 
