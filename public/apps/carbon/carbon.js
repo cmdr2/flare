@@ -24,6 +24,25 @@ const MOBILE_SWIPE_LOCK_PX = 10;
 const MOBILE_LONG_PRESS_MS = 320;
 const MOBILE_DRAG_START_DISTANCE_PX = 8;
 const LANGUAGE_IDS = new Set(CARBON_LANGUAGE_OPTIONS.map((option) => option.id));
+const LANGUAGE_BY_FILE_EXTENSION = Object.freeze({
+  c: 'cpp',
+  cc: 'cpp',
+  cpp: 'cpp',
+  css: 'css',
+  cxx: 'cpp',
+  h: 'cpp',
+  hpp: 'cpp',
+  htm: 'html',
+  html: 'html',
+  js: 'javascript',
+  jsx: 'javascript',
+  markdown: 'markdown',
+  md: 'markdown',
+  mjs: 'javascript',
+  py: 'python',
+  yaml: 'yaml',
+  yml: 'yaml'
+});
 
 const ui = {
   desktopTabStrip: document.getElementById('desktop-tab-strip'),
@@ -66,6 +85,8 @@ ui.syntaxSelect.addEventListener('change', () => {
 ui.desktopTabStrip.addEventListener('wheel', handleDesktopTabStripWheel, { passive: false });
 
 document.addEventListener('keydown', handleDocumentKeydown, true);
+document.addEventListener('dragover', handleDocumentDragOver, true);
+document.addEventListener('drop', handleDocumentDrop, true);
 window.addEventListener('resize', syncLayoutOffset);
 document.addEventListener('pointermove', handleGlobalPointerMove, { capture: true, passive: false });
 document.addEventListener('pointerup', handleGlobalPointerUp, { capture: true, passive: false });
@@ -164,21 +185,65 @@ async function createTabAtCurrentPosition() {
   updateStatus('Ready');
 }
 
-async function createTab({ activate = true, index = tabs.length } = {}) {
+async function createTab({
+  activate = true,
+  index = tabs.length,
+  content = '',
+  language = DEFAULT_CARBON_LANGUAGE,
+  renderEditor = true
+} = {}) {
   saveActiveTabSessionState({ persist: true });
   const tab = {
     id: crypto.randomUUID(),
-    content: '',
-    language: DEFAULT_CARBON_LANGUAGE,
+    content,
+    language: normalizeLanguageId(language),
     viewState: null,
     persisted: false
   };
   tabs.splice(index, 0, tab);
   activeTabId = activate ? tab.id : activeTabId || tab.id;
   persistActiveTabId();
+  if (renderEditor) {
+    render();
+    mountEditorForActiveTab();
+  }
+  return tab;
+}
+
+async function openDroppedFiles(fileList) {
+  const files = await Promise.all(fileList.map(readDroppedFile));
+  const droppedFiles = files.filter((file) => file !== null);
+  if (droppedFiles.length === 0) {
+    updateStatus('No readable files were dropped');
+    return;
+  }
+
+  await flushPendingSave({ silent: true });
+  const currentIndex = tabs.findIndex((tab) => tab.id === activeTabId);
+  let insertIndex = currentIndex === -1 ? tabs.length : currentIndex + 1;
+  const createdTabs = [];
+
+  for (let index = 0; index < droppedFiles.length; index += 1) {
+    const file = droppedFiles[index];
+    const tab = await createTab({
+      activate: index === droppedFiles.length - 1,
+      index: insertIndex,
+      content: file.content,
+      language: inferLanguageIdFromFileName(file.name),
+      renderEditor: false
+    });
+    createdTabs.push(tab);
+    insertIndex += 1;
+  }
+
   render();
   mountEditorForActiveTab();
-  return tab;
+
+  for (const tab of createdTabs) {
+    await saveTab(tab.id, { silent: true });
+  }
+
+  updateStatus(droppedFiles.length === 1 ? 'Opened 1 file' : 'Opened ' + droppedFiles.length + ' files');
 }
 
 async function selectTab(id) {
@@ -1092,6 +1157,29 @@ function handleDocumentKeydown(event) {
   }
 }
 
+function handleDocumentDragOver(event) {
+  if (!hasDroppedFiles(event)) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'copy';
+  }
+}
+
+function handleDocumentDrop(event) {
+  const files = getDroppedFiles(event);
+  if (files.length === 0) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+  void openDroppedFiles(files);
+}
+
 async function cycleTabs(step) {
   if (tabs.length < 2) {
     return;
@@ -1133,6 +1221,35 @@ function tabTitle(content) {
   const safeContent = typeof content === 'string' ? content : '';
   const firstLine = safeContent.split(/\r?\n/, 1)[0]?.trim();
   return firstLine || EMPTY_TITLE;
+}
+
+function hasDroppedFiles(event) {
+  return getDroppedFiles(event).length > 0;
+}
+
+function getDroppedFiles(event) {
+  const fileList = event.dataTransfer?.files;
+  return fileList ? Array.from(fileList).filter((file) => file.size >= 0) : [];
+}
+
+async function readDroppedFile(file) {
+  try {
+    return {
+      name: file.name,
+      content: await file.text()
+    };
+  } catch {
+    return null;
+  }
+}
+
+function inferLanguageIdFromFileName(fileName) {
+  const extension = fileName.split('.').pop()?.toLowerCase();
+  if (!extension) {
+    return DEFAULT_CARBON_LANGUAGE;
+  }
+
+  return normalizeLanguageId(LANGUAGE_BY_FILE_EXTENSION[extension]);
 }
 
 function normalizeLanguageId(languageId) {
