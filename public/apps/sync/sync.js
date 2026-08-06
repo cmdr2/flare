@@ -468,7 +468,11 @@ function logSyncEntries(phase, paths, local, remote, requestId, onProgress) {
             '  remote: ' + remoteHash
         ].join('\n');
 
-        console.log('[sync]', message);
+        if (localHash !== remoteHash) {
+            console.warn('[sync]', message);
+        } else {
+            console.log('[sync]', message);
+        }
         onProgress?.({
             phase,
             message,
@@ -668,7 +672,7 @@ async function createRemoteStorage(credentials) {
                     logSyncDebug('remote:download:start', { path, key, bucket: credentials.bucket });
                     const response = await runS3Request(() => client.getObject({
                         Bucket: credentials.bucket,
-                        Key: key
+                        Key: key + "?nocache=" + Date.now()
                     }).promise());
                     const body = await readResponseBody(response.Body);
                     await writeBytes(path, body);
