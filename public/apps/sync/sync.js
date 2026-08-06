@@ -670,10 +670,16 @@ async function createRemoteStorage(credentials) {
                 const key = toRemoteKey(filesPrefix, path);
                 try {
                     logSyncDebug('remote:download:start', { path, key, bucket: credentials.bucket });
-                    const response = await runS3Request(() => client.getObject({
-                        Bucket: credentials.bucket,
-                        Key: key + "?nocache=" + Date.now()
-                    }).promise());
+                    const response = await runS3Request(() => {
+                        const request = client.getObject({
+                            Bucket: credentials.bucket,
+                            Key: key
+                        })
+
+                        request.httpRequest.headers["Cache-Control"] = "no-cache";
+
+                        return request.promise()
+                    });
                     const body = await readResponseBody(response.Body);
                     await writeBytes(path, body);
                     logSyncDebug('remote:download:complete', {
