@@ -30678,8 +30678,6 @@ function createCodeMirrorEditor({
   parent,
   doc: doc2 = "",
   language: language2 = DEFAULT_LANGUAGE_ID,
-  initialEditorState = null,
-  initialHistory = null,
   onChange,
   theme: theme2 = null,
   highlightStyle = null,
@@ -30689,18 +30687,20 @@ function createCodeMirrorEditor({
 }) {
   const languageCompartment = new Compartment();
   let currentLanguage = normalizeLanguageId(language2);
-  const extensions = createExtensions({
-    language: currentLanguage,
-    languageCompartment,
-    onChange,
-    theme: theme2,
-    highlightStyle,
-    enableAutocomplete,
-    extraExtensions,
-    extraKeymap
-  });
   const view = new EditorView({
-    state: createEditorState(doc2, extensions, initialEditorState, initialHistory),
+    state: EditorState.create({
+      doc: doc2,
+      extensions: createExtensions({
+        language: currentLanguage,
+        languageCompartment,
+        onChange,
+        theme: theme2,
+        highlightStyle,
+        enableAutocomplete,
+        extraExtensions,
+        extraKeymap
+      })
+    }),
     parent
   });
   return {
@@ -30719,41 +30719,8 @@ function createCodeMirrorEditor({
       view.dispatch({
         effects: languageCompartment.reconfigure(getLanguageExtension(currentLanguage))
       });
-    },
-    getHistory() {
-      const historyState = view.state.field(historyField_, false);
-      return historyState ? historyField_.spec.toJSON(historyState, view.state) : null;
-    },
-    getSerializedState() {
-      return view.state.toJSON({ history: historyField_ });
     }
   };
-}
-function createEditorState(doc2, extensions, initialEditorState, initialHistory) {
-  if (isEditorStateJSON(initialEditorState)) {
-    try {
-      return EditorState.fromJSON(initialEditorState, { extensions }, { history: historyField_ });
-    } catch {
-    }
-  }
-  if (!isHistoryJSON(initialHistory)) {
-    return EditorState.create({ doc: doc2, extensions });
-  }
-  try {
-    return EditorState.fromJSON({
-      doc: doc2,
-      selection: { ranges: [{ anchor: 0, head: 0 }], main: 0 },
-      history: initialHistory
-    }, { extensions }, { history: historyField_ });
-  } catch {
-    return EditorState.create({ doc: doc2, extensions });
-  }
-}
-function isEditorStateJSON(value) {
-  return !!value && typeof value == "object" && typeof value.doc == "string" && !!value.selection;
-}
-function isHistoryJSON(value) {
-  return !!value && typeof value == "object" && Array.isArray(value.done) && Array.isArray(value.undone);
 }
 export {
   COMMON_LANGUAGE_OPTIONS,

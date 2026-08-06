@@ -92,12 +92,10 @@ document.addEventListener('pointermove', handleGlobalPointerMove, { capture: tru
 document.addEventListener('pointerup', handleGlobalPointerUp, { capture: true, passive: false });
 document.addEventListener('pointercancel', handleGlobalPointerCancel, { capture: true, passive: false });
 window.addEventListener('pagehide', () => {
-  persistSessionState();
   void flushPendingSave({ silent: true });
 });
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
-    persistSessionState();
     void flushPendingSave({ silent: true });
   }
 });
@@ -156,9 +154,7 @@ async function loadTabs() {
         id,
         content: await fs.promises.readFile(tabPath(id), { encoding: 'utf8' }),
         language: normalizeLanguageId(tabState[id]?.language),
-        editorState: readTabEditorState(id),
         viewState: readTabViewState(id),
-        history: readTabHistory(id),
         persisted: true
       });
     } catch {
@@ -201,9 +197,7 @@ async function createTab({
     id: crypto.randomUUID(),
     content,
     language: normalizeLanguageId(language),
-    editorState: null,
     viewState: null,
-    history: null,
     persisted: false
   };
   tabs.splice(index, 0, tab);
@@ -801,8 +795,6 @@ function mountEditorForActiveTab() {
     parent: ui.editorHost,
     doc: tab.content,
     language: tab.language,
-    initialEditorState: tab.editorState,
-    initialHistory: tab.history,
     onChange(nextContent) {
       tab.content = nextContent;
       render();
@@ -1085,20 +1077,14 @@ function saveActiveTabSessionState({ persist = false } = {}) {
     scrollTop: editorSession.view.scrollDOM.scrollTop,
     scrollLeft: editorSession.view.scrollDOM.scrollLeft
   };
-  const editorState = editorSession.getSerializedState?.() || null;
-  const history = editorSession.getHistory?.() || null;
 
   if (activeTab) {
-    activeTab.editorState = editorState;
     activeTab.viewState = viewState;
-    activeTab.history = history;
   }
 
   sessionState.tabs[activeTabId] = {
     ...sessionState.tabs[activeTabId],
-    editorState,
     ...viewState,
-    history,
     language: activeTab?.language || sessionState.tabs[activeTabId]?.language || DEFAULT_CARBON_LANGUAGE
   };
 
@@ -1106,28 +1092,6 @@ function saveActiveTabSessionState({ persist = false } = {}) {
     sessionState.activeTabId = activeTabId;
     window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionState));
   }
-}
-
-function readTabEditorState(tabId) {
-  if (!tabId) {
-    return null;
-  }
-
-  const tab = tabs.find((candidate) => candidate.id === tabId);
-  if (tab?.editorState) {
-    return tab.editorState;
-  }
-
-  const editorState = sessionState.tabs[tabId]?.editorState;
-  if (!editorState || typeof editorState !== 'object') {
-    return null;
-  }
-
-  if (typeof editorState.doc !== 'string' || !editorState.selection || typeof editorState.selection !== 'object') {
-    return null;
-  }
-
-  return editorState;
 }
 
 function readTabViewState(tabId) {
@@ -1151,28 +1115,6 @@ function readTabViewState(tabId) {
     scrollTop: state.scrollTop,
     scrollLeft: state.scrollLeft
   };
-}
-
-function readTabHistory(tabId) {
-  if (!tabId) {
-    return null;
-  }
-
-  const tab = tabs.find((candidate) => candidate.id === tabId);
-  if (tab?.history) {
-    return tab.history;
-  }
-
-  const history = sessionState.tabs[tabId]?.history;
-  if (!history || typeof history !== 'object') {
-    return null;
-  }
-
-  if (!Array.isArray(history.done) || !Array.isArray(history.undone)) {
-    return null;
-  }
-
-  return history;
 }
 
 async function readState() {
