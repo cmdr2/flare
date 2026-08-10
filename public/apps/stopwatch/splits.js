@@ -62,7 +62,7 @@ async function loadAllRuns() {
 }
 
 // ---------------- Per-run settings (localStorage) ----------------
-const LAP_DISTANCE_KEY = "stopwatch.lapDistanceM";
+const LAP_DISTANCE_KEY = "stopwatch.lapDistance";
 const DEFAULT_LAP_DISTANCE_M = 1000;
 
 function loadLapDistanceSetting() {
@@ -124,20 +124,20 @@ function formatDate(ts) {
 }
 
 // ---------------- Lap math ----------------
-// Laps only store lapTimeMs. Everything else (cumulative time, pace) is
+// Laps only store lapTime. Everything else (cumulative time, pace) is
 // derived here so there's a single source of truth for the math.
 function computeLapStats(run) {
-    let cumulativeMs = 0;
+    let cumulativeTime = 0;
     return run.laps.map((lap) => {
-        cumulativeMs += lap.lapTimeMs;
-        const paceSecPerKm = lap.lapTimeMs / run.lapDistanceM;
-        return { lapTimeMs: lap.lapTimeMs, cumulativeMs, paceSecPerKm };
+        cumulativeTime += lap.lapTime;
+        const pace = lap.lapTime / run.lapDistance;
+        return { lapTime: lap.lapTime, cumulativeTime, pace };
     });
 }
 
 // ---------------- State ----------------
 const state = {
-    lapDistanceM: DEFAULT_LAP_DISTANCE_M,
+    lapDistance: DEFAULT_LAP_DISTANCE_M,
     status: "idle", // idle | running | stopped
     currentRun: null,
     lastLapStart: null,
@@ -204,16 +204,16 @@ function tick() {
 function lapRowHTML(index, stat) {
     return `<li class="lap-row">
       <span class="lap-num">${index + 1}</span>
-      <span class="lap-pace">${formatPace(stat.paceSecPerKm)}</span>
-      <span class="lap-time">${formatTime(stat.lapTimeMs)}</span>
-      <span class="lap-cum">${formatTime(stat.cumulativeMs)}</span>
+      <span class="lap-pace">${formatPace(stat.pace)}</span>
+      <span class="lap-time">${formatTime(stat.lapTime)}</span>
+      <span class="lap-cum">${formatTime(stat.cumulativeTime)}</span>
     </li>`;
 }
 
 function recordLap() {
     const now = Date.now();
-    const lapTimeMs = now - state.lastLapStart;
-    state.currentRun.laps.push({ lapTimeMs });
+    const lapTime = now - state.lastLapStart;
+    state.currentRun.laps.push({ lapTime });
     state.lastLapStart = now;
 
     const stats = computeLapStats(state.currentRun);
@@ -233,7 +233,7 @@ els.startBtn.addEventListener("click", async () => {
         id: crypto.randomUUID(),
         startTime: now,
         endTime: null,
-        lapDistanceM: state.lapDistanceM,
+        lapDistance: state.lapDistance,
         laps: [],
         totalTimeMs: null,
     };
@@ -258,9 +258,9 @@ els.stopBtn.addEventListener("click", async () => {
     cancelAnimationFrame(state.rafId);
     state.rafId = null;
     state.currentRun.endTime = Date.now();
-    state.currentRun.totalTimeMs = finalStat.cumulativeMs;
+    state.currentRun.totalTimeMs = finalStat.cumulativeTime;
     state.status = "stopped";
-    els.totalTime.textContent = formatClockMs(finalStat.cumulativeMs);
+    els.totalTime.textContent = formatClockMs(finalStat.cumulativeTime);
     showClockState();
     await persistCurrentRun();
 });
@@ -279,7 +279,7 @@ els.resetBtn.addEventListener("click", () => {
 function runCardHTML(run) {
     const stats = computeLapStats(run);
     const lapCount = stats.length;
-    const avgPace = lapCount > 0 ? run.totalTimeMs / (lapCount * run.lapDistanceM) : 0;
+    const avgPace = lapCount > 0 ? run.totalTimeMs / (lapCount * run.lapDistance) : 0;
     const lapsRows = stats.map((stat, i) => lapRowHTML(i, stat)).join("");
     return `<li class="run-card" data-id="${run.id}">
       <div class="run-card-head">
@@ -289,7 +289,7 @@ function runCardHTML(run) {
         </div>
         <div class="rc-right">
           <span class="rc-avgpace">${formatPace(avgPace)} min/km avg</span>
-          <span class="rc-laps">${lapCount} lap${lapCount === 1 ? "" : "s"} · ${run.lapDistanceM}m laps</span>
+          <span class="rc-laps">${lapCount} lap${lapCount === 1 ? "" : "s"} · ${run.lapDistance}m laps</span>
         </div>
         <svg class="chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
       </div>
@@ -322,15 +322,15 @@ els.runsList.addEventListener("click", (e) => {
 // ---------------- Settings panel (per-run lap distance) ----------------
 let savedMsgTimeout = null;
 function initSettings() {
-    state.lapDistanceM = loadLapDistanceSetting();
-    els.lapDistanceInput.value = state.lapDistanceM;
+    state.lapDistance = loadLapDistanceSetting();
+    els.lapDistanceInput.value = state.lapDistance;
 }
 
 els.lapDistanceInput.addEventListener("change", () => {
     let v = parseInt(els.lapDistanceInput.value, 10);
     if (!v || v < 1) v = DEFAULT_LAP_DISTANCE_M;
     els.lapDistanceInput.value = v;
-    state.lapDistanceM = v;
+    state.lapDistance = v;
     saveLapDistanceSetting(v);
 });
 
