@@ -1,0 +1,20 @@
+{
+    "name": "Splits",
+    "short_name": "Splits",
+    "version": "0.1.0",
+    "description": "Stopwatch and lap timer for tracking runs, works fully offline.",
+    "start_url": "/public/apps/splits/",
+    "scope": "/public/apps/splits/",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#0B1220",
+    "theme_color": "#0B1220",
+    "icons": [
+        {
+            "src": "/public/apps/splits/icon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        }
+    ]
+}
