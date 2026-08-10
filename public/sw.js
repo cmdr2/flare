@@ -9,8 +9,8 @@ const APP_SHELLS = {
     '/public/apps/carbon/index.html': '/public/apps/carbon/index.html',
     '/public/apps/sync/': '/public/apps/sync/index.html',
     '/public/apps/sync/index.html': '/public/apps/sync/index.html',
-    '/public/apps/splits/': '/public/apps/splits/index.html',
-    '/public/apps/splits/index.html': '/public/apps/splits/index.html'
+    '/public/apps/stopwatch/': '/public/apps/stopwatch/index.html',
+    '/public/apps/stopwatch/index.html': '/public/apps/stopwatch/index.html'
 };
 const PRECACHE_URLS = [
     '/public/apps/explorer/',
@@ -29,12 +29,12 @@ const PRECACHE_URLS = [
     '/public/apps/carbon/icon.svg',
     '/public/apps/carbon/carbon.js',
     '/public/apps/carbon/codemirror-carbon.js',
-    '/public/apps/splits/',
-    '/public/apps/splits/index.html',
-    '/public/apps/splits/manifest.webmanifest',
-    '/public/apps/splits/splits.css',
-    '/public/apps/splits/splits.js',
-    '/public/apps/splits/icon.svg',
+    '/public/apps/stopwatch/',
+    '/public/apps/stopwatch/index.html',
+    '/public/apps/stopwatch/manifest.webmanifest',
+    '/public/apps/stopwatch/splits.css',
+    '/public/apps/stopwatch/splits.js',
+    '/public/apps/stopwatch/icon.svg',
     '/public/libs/codemirror.js',
     '/public/apps/sync/',
     '/public/apps/sync/index.html',

@@ -1,13 +1,13 @@
 import { registerPwa } from "/public/libs/flare/pwa.js";
 import { fs } from "/public/libs/flare/fs.js";
 
-registerPwa("splits");
+registerPwa("stopwatch");
 
 // ---------------- Filesystem layout ----------------
-// /home/.splits/runs/<run_guid>.json
+// /home/.stopwatch/runs/<run_guid>.json
 const HOME_DIR = "/home";
-const DATA_DIR = "/home/.splits";
-const RUNS_DIR = "/home/.splits/runs";
+const DATA_DIR = "/home/.stopwatch";
+const RUNS_DIR = "/home/.stopwatch/runs";
 
 // ---------------- Filesystem helpers ----------------
 async function ensureDir(path) {
@@ -62,7 +62,7 @@ async function loadAllRuns() {
 }
 
 // ---------------- Per-run settings (localStorage) ----------------
-const LAP_DISTANCE_KEY = "splits.lapDistanceM";
+const LAP_DISTANCE_KEY = "stopwatch.lapDistanceM";
 const DEFAULT_LAP_DISTANCE_M = 1000;
 
 function loadLapDistanceSetting() {
@@ -289,7 +289,7 @@ function runCardHTML(run) {
         </div>
         <div class="rc-right">
           <span class="rc-avgpace">${formatPace(avgPace)} min/km avg</span>
-          <span class="rc-laps">${lapCount} lap${lapCount === 1 ? "" : "s"} · ${run.lapDistanceM}m splits</span>
+          <span class="rc-laps">${lapCount} lap${lapCount === 1 ? "" : "s"} · ${run.lapDistanceM}m laps</span>
         </div>
         <svg class="chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
       </div>
