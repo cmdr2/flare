@@ -232,10 +232,8 @@ els.startBtn.addEventListener("click", async () => {
     state.currentRun = {
         id: crypto.randomUUID(),
         startTime: now,
-        endTime: null,
         lapDistance: state.lapDistance,
         laps: [],
-        totalTimeMs: null,
     };
     state.lastLapStart = now;
     state.status = "running";
@@ -257,8 +255,6 @@ els.stopBtn.addEventListener("click", async () => {
     const finalStat = recordLap();
     cancelAnimationFrame(state.rafId);
     state.rafId = null;
-    state.currentRun.endTime = Date.now();
-    state.currentRun.totalTimeMs = finalStat.cumulativeTime;
     state.status = "stopped";
     els.totalTime.textContent = formatClockMs(finalStat.cumulativeTime);
     showClockState();
@@ -279,13 +275,14 @@ els.resetBtn.addEventListener("click", () => {
 function runCardHTML(run) {
     const stats = computeLapStats(run);
     const lapCount = stats.length;
-    const avgPace = lapCount > 0 ? run.totalTimeMs / (lapCount * run.lapDistance) : 0;
+    const totalTimeMs = lapCount > 0 ? stats[lapCount - 1].cumulativeTime : 0;
+    const avgPace = lapCount > 0 ? totalTimeMs / (lapCount * run.lapDistance) : 0;
     const lapsRows = stats.map((stat, i) => lapRowHTML(i, stat)).join("");
     return `<li class="run-card" data-id="${run.id}">
       <div class="run-card-head">
         <div class="rc-left">
           <span class="rc-date">${formatDate(run.startTime)}</span>
-          <span class="rc-total">${formatTime(run.totalTimeMs || 0)}</span>
+          <span class="rc-total">${formatTime(totalTimeMs)}</span>
         </div>
         <div class="rc-right">
           <span class="rc-avgpace">${formatPace(avgPace)} min/km avg</span>
