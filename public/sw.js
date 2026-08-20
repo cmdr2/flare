@@ -1,4 +1,4 @@
-const CACHE_VERSION = "v0.8.4";
+const CACHE_VERSION = "v0.8.5";
 const CACHE_NAME = "flare-shell-" + CACHE_VERSION;
 const APP_SHELLS = {
     "/public/apps/explorer/": "/public/apps/explorer/index.html",
@@ -32,8 +32,8 @@ const PRECACHE_URLS = [
     "/public/apps/stopwatch/",
     "/public/apps/stopwatch/index.html",
     "/public/apps/stopwatch/manifest.webmanifest",
-    "/public/apps/stopwatch/splits.css",
-    "/public/apps/stopwatch/splits.js",
+    "/public/apps/stopwatch/stopwatch.css",
+    "/public/apps/stopwatch/stopwatch.js",
     "/public/apps/stopwatch/icon.svg",
     "/public/libs/codemirror.js",
     "/public/apps/sync/",
