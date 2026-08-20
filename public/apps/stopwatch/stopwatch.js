@@ -124,8 +124,6 @@ function formatDate(ts) {
 }
 
 // ---------------- Lap math ----------------
-// Laps only store lapTime. Everything else (cumulative time, pace) is
-// derived here so there's a single source of truth for the math.
 function computeLapStats(run) {
     let cumulativeTime = 0;
     return run.laps.map((lap) => {
@@ -142,6 +140,7 @@ const state = {
     currentRun: null,
     lastLapStart: null,
     rafId: null,
+    runsById: new Map(),
 };
 
 // ---------------- Elements ----------------
@@ -234,6 +233,7 @@ els.startBtn.addEventListener("click", async () => {
         startTime: now,
         lapDistance: state.lapDistance,
         laps: [],
+        notes: "",
     };
     state.lastLapStart = now;
     state.status = "running";
@@ -278,6 +278,8 @@ function runCardHTML(run) {
     const totalTimeMs = lapCount > 0 ? stats[lapCount - 1].cumulativeTime : 0;
     const avgPace = lapCount > 0 ? totalTimeMs / (lapCount * run.lapDistance) : 0;
     const lapsRows = stats.map((stat, i) => lapRowHTML(i, stat)).join("");
+    const notesValue = run.notes || "";
+
     return `<li class="run-card" data-id="${run.id}">
       <div class="run-card-head">
         <div class="rc-left">
@@ -295,18 +297,24 @@ function runCardHTML(run) {
           <span>#</span><span>Min/km</span><span>Lap</span><span>Total</span>
         </div>
         <ul class="laps-list">${lapsRows}</ul>
+        <div class="run-notes-section">
+          <label class="run-notes-label" for="notes-${run.id}">Notes</label>
+          <textarea id="notes-${run.id}" class="run-notes-input" placeholder="Add notes about this run...">${notesValue}</textarea>
+        </div>
       </div>
     </li>`;
 }
 
 async function loadRuns() {
     const runs = await loadAllRuns();
+    state.runsById.clear();
     if (runs.length === 0) {
         els.runsEmpty.classList.remove("hidden");
         els.runsList.innerHTML = "";
         return;
     }
     els.runsEmpty.classList.add("hidden");
+    runs.forEach((r) => state.runsById.set(r.id, r));
     els.runsList.innerHTML = runs.map(runCardHTML).join("");
 }
 
@@ -316,8 +324,19 @@ els.runsList.addEventListener("click", (e) => {
     head.closest(".run-card").classList.toggle("expanded");
 });
 
+els.runsList.addEventListener("focusout", async (e) => {
+    if (!e.target.classList.contains("run-notes-input")) return;
+    const card = e.target.closest(".run-card");
+    if (!card) return;
+    const runId = card.dataset.id;
+    const run = state.runsById.get(runId);
+    if (run) {
+        run.notes = e.target.value;
+        await saveRun(run);
+    }
+});
+
 // ---------------- Settings panel (per-run lap distance) ----------------
-let savedMsgTimeout = null;
 function initSettings() {
     state.lapDistance = loadLapDistanceSetting();
     els.lapDistanceInput.value = state.lapDistance;

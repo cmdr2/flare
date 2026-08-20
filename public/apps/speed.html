@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+        <title>GPS Running Speedometer</title>
+
+        <style>
+            body {
+                background: #121212;
+                color: #ffffff;
+                font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+                margin: 0;
+                padding: 20px;
+            }
+
+            .speed-container {
+                text-align: center;
+                margin-top: 30px;
+            }
+
+            .value {
+                font-size: 5rem;
+                font-weight: bold;
+                color: #00e676;
+                margin: 0;
+            }
+
+            .unit {
+                font-size: 1.5rem;
+                color: #aaaaaa;
+                text-transform: uppercase;
+                letter-spacing: 2px;
+            }
+
+            .caption {
+                margin-top: 12px;
+                font-size: 1.1rem;
+                color: #888888;
+            }
+
+            .status {
+                margin-top: 20px;
+                font-size: 0.9rem;
+                color: #ff8f00;
+            }
+
+            button {
+                background: #00e676;
+                color: #121212;
+                border: none;
+                padding: 12px 24px;
+                font-size: 1rem;
+                font-weight: bold;
+                border-radius: 25px;
+                cursor: pointer;
+                margin-top: 20px;
+            }
+
+            #debug {
+                margin-top: 30px;
+                background: #1e1e1e;
+                border-radius: 8px;
+                padding: 12px;
+                font-family: monospace;
+                font-size: 12px;
+                line-height: 1.4;
+                white-space: pre-wrap;
+                overflow-y: auto;
+                height: 300px;
+                color: #cccccc;
+            }
+
+            .debug-header {
+                margin-top: 30px;
+                color: #888;
+                font-size: 12px;
+                text-transform: uppercase;
+            }
+        </style>
+    </head>
+
+    <body>
+        <div class="speed-container">
+            <div class="value" id="pace-display">--:--</div>
+            <div class="unit">min / km</div>
+            <div class="caption" id="speed-caption">0.00 m/s</div>
+
+            <div class="status" id="status-display">Click start to enable GPS tracking</div>
+
+            <button id="start-btn">Start Tracking</button>
+        </div>
+
+        <div class="debug-header">GPS Debug Log</div>
+
+        <div id="debug"></div>
+
+        <script>
+            const paceDisplay = document.getElementById("pace-display");
+            const speedCaption = document.getElementById("speed-caption");
+            const statusDisplay = document.getElementById("status-display");
+            const startBtn = document.getElementById("start-btn");
+            const debugDisplay = document.getElementById("debug");
+
+            // ============================================================
+            // Configuration
+            // ============================================================
+
+            // How often to log the current speed, independent of whether a
+            // new GPS fix has arrived.
+            const LOG_INTERVAL_MS = 2000;
+
+            // ============================================================
+            // State
+            // ============================================================
+
+            let currentSpeed = 0; // last valid native speed, m/s
+
+            let updateCount = 0;
+
+            let lastPositionTimestamp = null;
+
+            const logs = [];
+
+            // ============================================================
+            // Logging
+            // ============================================================
+
+            function log(message) {
+                const time = new Date().toLocaleTimeString();
+
+                logs.push(`${time}  ${message}`);
+
+                while (logs.length > 150) {
+                    logs.shift();
+                }
+
+                debugDisplay.textContent = logs.join("\n");
+
+                debugDisplay.scrollTop = debugDisplay.scrollHeight;
+            }
+
+            // ============================================================
+            // Pace formatting
+            // ============================================================
+
+            function speedToPace(speedMs) {
+                if (speedMs < 0.1) {
+                    return "--:--";
+                }
+
+                const secPerKm = 1000 / speedMs;
+
+                let min = Math.floor(secPerKm / 60);
+                let sec = Math.round(secPerKm % 60);
+
+                if (sec === 60) {
+                    sec = 0;
+                    min += 1;
+                }
+
+                return `${min}:${sec.toString().padStart(2, "0")}`;
+            }
+
+            // ============================================================
+            // Display update
+            // ============================================================
+
+            function updateDisplay() {
+                paceDisplay.textContent = speedToPace(currentSpeed);
+                speedCaption.textContent = `${currentSpeed.toFixed(2)} m/s`;
+            }
+
+            // ============================================================
+            // Main position handler
+            // ============================================================
+
+            function handlePosition(position) {
+                updateCount++;
+
+                const { latitude, longitude, accuracy, speed: nativeSpeed } = position.coords;
+
+                const timestamp = position.timestamp;
+
+                let updateInterval = null;
+
+                if (lastPositionTimestamp !== null) {
+                    updateInterval = (timestamp - lastPositionTimestamp) / 1000;
+                }
+
+                lastPositionTimestamp = timestamp;
+
+                // Native speed can be null (e.g. standing still, weak
+                // signal) - in that case just keep showing the last value
+                // rather than snapping to 0.
+                if (nativeSpeed !== null && Number.isFinite(nativeSpeed) && nativeSpeed >= 0) {
+                    currentSpeed = nativeSpeed;
+                    updateDisplay();
+                }
+
+                statusDisplay.textContent = `GPS Active · Accuracy ±${Math.round(accuracy)}m`;
+                statusDisplay.style.color = "#00e676";
+
+                // ----------------------------------------------------------
+                // Debug logging
+                // ----------------------------------------------------------
+
+                const nativeText = nativeSpeed === null ? "null" : nativeSpeed.toFixed(3);
+
+                const intervalText = updateInterval === null ? "first" : `${updateInterval.toFixed(2)}s`;
+
+                log(
+                    `#${updateCount} ` +
+                        `interval=${intervalText} ` +
+                        `accuracy=±${accuracy.toFixed(1)}m\n` +
+                        `  nativeSpeed=${nativeText} m/s ` +
+                        `displayed=${currentSpeed.toFixed(3)}\n` +
+                        `  lat=${latitude.toFixed(6)} ` +
+                        `lon=${longitude.toFixed(6)}`,
+                );
+            }
+
+            // ============================================================
+            // Periodic 2s logging (independent of GPS fix rate)
+            // ============================================================
+
+            function startPeriodicLogging() {
+                setInterval(() => {
+                    log(`[2s tick] speed=${currentSpeed.toFixed(3)} m/s pace=${speedToPace(currentSpeed)}/km`);
+                }, LOG_INTERVAL_MS);
+            }
+
+            // ============================================================
+            // Start
+            // ============================================================
+
+            function startTracking() {
+                if (!("geolocation" in navigator)) {
+                    statusDisplay.textContent = "Error: Geolocation not supported.";
+
+                    return;
+                }
+
+                startBtn.style.display = "none";
+
+                statusDisplay.textContent = "Connecting to GPS satellites...";
+
+                log("Starting geolocation watch...");
+
+                startPeriodicLogging();
+
+                navigator.geolocation.watchPosition(
+                    handlePosition,
+
+                    (error) => {
+                        log(`GPS ERROR ${error.code}: ${error.message}`);
+
+                        paceDisplay.textContent = "--:--";
+                        speedCaption.textContent = "0.00 m/s";
+
+                        statusDisplay.style.color = "#ff5252";
+
+                        if (error.code === error.PERMISSION_DENIED) {
+                            statusDisplay.textContent = "Permission denied.";
+                        } else if (error.code === error.POSITION_UNAVAILABLE) {
+                            statusDisplay.textContent = "Position unavailable.";
+                        } else {
+                            statusDisplay.textContent = "GPS timeout.";
+                        }
+                    },
+
+                    {
+                        enableHighAccuracy: true,
+                        maximumAge: 0,
+                        timeout: 10000,
+                    },
+                );
+            }
+
+            startBtn.addEventListener("click", startTracking);
+        </script>
+    </body>
+</html>

@@ -357,6 +357,37 @@ button:active {
     flex-shrink: 0;
     margin-left: 8px;
 }
+.run-notes-section {
+    padding: 12px 16px 16px;
+    border-top: 1px solid var(--hairline);
+    background: var(--panel-2);
+}
+.run-notes-label {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+}
+.run-notes-input {
+    width: 100%;
+    min-height: 70px;
+    background: var(--panel);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.88rem;
+    line-height: 1.4;
+    resize: vertical;
+    outline: none;
+}
+.run-notes-input:focus {
+    border-color: var(--accent);
+}
 
 /* ---------- Settings panel (collapsible, in Clock tab) ---------- */
 .settings-panel {
