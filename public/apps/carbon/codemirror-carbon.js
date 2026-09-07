@@ -73,7 +73,34 @@ const carbonTheme = EditorView.theme({
   }
 }, { dark: true });
 
+function scrollEditorLines(view, lineCount) {
+  const scrollDOM = view.scrollDOM;
+  const maxScrollTop = Math.max(0, scrollDOM.scrollHeight - scrollDOM.clientHeight);
+  if (maxScrollTop <= 0) {
+    return false;
+  }
+
+  const lineHeight = view.defaultLineHeight;
+  if (!(lineHeight > 0)) {
+    return false;
+  }
+
+  const currentScrollTop = scrollDOM.scrollTop;
+  const targetScrollTop = Math.max(0, Math.min(maxScrollTop, currentScrollTop + lineCount * lineHeight));
+  if (targetScrollTop === currentScrollTop) {
+    return false;
+  }
+
+  scrollDOM.scrollTop = targetScrollTop;
+  return true;
+}
+
+const scrollLineUp = (view) => scrollEditorLines(view, -1);
+const scrollLineDown = (view) => scrollEditorLines(view, 1);
+
 const carbonKeymap = [
+  { key: 'Ctrl-ArrowUp', run: scrollLineUp, preventDefault: true },
+  { key: 'Ctrl-ArrowDown', run: scrollLineDown, preventDefault: true },
   { key: 'Ctrl-Shift-ArrowUp', run: moveLineUp, preventDefault: true },
   { key: 'Ctrl-Shift-ArrowDown', run: moveLineDown, preventDefault: true },
   { key: 'Cmd-Shift-ArrowUp', run: moveLineUp, preventDefault: true },
